@@ -10,7 +10,6 @@
 //! -> <h1>Hello, LT!</h1>
 //! ```
 
-use async_trait::async_trait;
 use axum::{
     extract::{rejection::FormRejection, Form, FromRequest},
     http::{Request, StatusCode},
@@ -59,7 +58,6 @@ async fn handler(ValidatedForm(input): ValidatedForm<NameInput>) -> Html<String>
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ValidatedForm<T>(pub T);
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for ValidatedForm<T>
 where
     T: DeserializeOwned + Validate,
@@ -69,7 +67,7 @@ where
 {
     type Rejection = ServerError;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
         let Form(value) = Form::<T>::from_request(req, state).await?;
         value.validate()?;
         Ok(ValidatedForm(value))

@@ -5,7 +5,6 @@
 //! ```
 
 use axum::{
-    async_trait,
     body::{self, BoxBody, Bytes, Full},
     extract::FromRequest,
     http::{Request, StatusCode},
@@ -80,14 +79,13 @@ async fn handler(BufferRequestBody(body): BufferRequestBody) {
 struct BufferRequestBody(Bytes);
 
 // we must implement `FromRequest` (and not `FromRequestParts`) to consume the body
-#[async_trait]
 impl<S> FromRequest<S, BoxBody> for BufferRequestBody
 where
     S: Send + Sync,
 {
     type Rejection = Response;
 
-    async fn from_request(req: Request<BoxBody>, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request(req: Request<BoxBody>, state: &S) -> Result<Self, Self::Rejection> {
         let body = Bytes::from_request(req, state)
             .await
             .map_err(|err| err.into_response())?;

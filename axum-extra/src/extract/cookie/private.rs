@@ -1,12 +1,11 @@
 use super::{cookies_from_request, set_cookies, Cookie, Key};
 use axum::{
-    async_trait,
     extract::{FromRef, FromRequestParts},
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
 use cookie::PrivateJar;
 use http::{request::Parts, HeaderMap};
-use std::{convert::Infallible, fmt, marker::PhantomData};
+use std::{convert::Infallible, fmt, future::Future, marker::PhantomData};
 
 /// Extractor that grabs private cookies from the request and manages the jar.
 ///
@@ -86,7 +85,6 @@ impl<K> fmt::Debug for PrivateCookieJar<K> {
     }
 }
 
-#[async_trait]
 impl<S, K> FromRequestParts<S> for PrivateCookieJar<K>
 where
     S: Send + Sync,
@@ -94,19 +92,24 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let k = K::from_ref(state);
-        let key = k.into();
-        let PrivateCookieJar {
-            jar,
-            key,
-            _marker: _,
-        } = PrivateCookieJar::from_headers(&parts.headers, key);
-        Ok(PrivateCookieJar {
-            jar,
-            key,
-            _marker: PhantomData,
-        })
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let k = K::from_ref(state);
+            let key = k.into();
+            let PrivateCookieJar {
+                jar,
+                key,
+                _marker: _,
+            } = PrivateCookieJar::from_headers(&parts.headers, key);
+            Ok(PrivateCookieJar {
+                jar,
+                key,
+                _marker: PhantomData,
+            })
+        }
     }
 }
 

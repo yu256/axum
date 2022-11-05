@@ -384,7 +384,6 @@ fn impl_struct_by_extracting_each_field(
 
     Ok(match tr {
         Trait::FromRequest => quote! {
-            #[::axum::async_trait]
             #[automatically_derived]
             impl<#impl_generics> ::axum::extract::FromRequest<#trait_generics> for #ident
             where
@@ -395,7 +394,7 @@ fn impl_struct_by_extracting_each_field(
             {
                 type Rejection = #rejection_ident;
 
-                async fn from_request(
+                fn from_request(
                     mut req: ::axum::http::Request<B>,
                     state: &#state,
                 ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -404,7 +403,6 @@ fn impl_struct_by_extracting_each_field(
             }
         },
         Trait::FromRequestParts => quote! {
-            #[::axum::async_trait]
             #[automatically_derived]
             impl<#impl_generics> ::axum::extract::FromRequestParts<#trait_generics> for #ident
             where
@@ -412,7 +410,7 @@ fn impl_struct_by_extracting_each_field(
             {
                 type Rejection = #rejection_ident;
 
-                async fn from_request_parts(
+                fn from_request_parts<'a>(
                     parts: &mut ::axum::http::request::Parts,
                     state: &#state,
                 ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -822,7 +820,6 @@ fn impl_struct_by_extracting_all_at_once(
     let tokens = match tr {
         Trait::FromRequest => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequest<#trait_generics> for #ident #ident_generics
                 where
@@ -833,7 +830,7 @@ fn impl_struct_by_extracting_all_at_once(
                 {
                     type Rejection = #associated_rejection_type;
 
-                    async fn from_request(
+                    fn from_request(
                         req: ::axum::http::Request<B>,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -847,7 +844,6 @@ fn impl_struct_by_extracting_all_at_once(
         }
         Trait::FromRequestParts => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequestParts<#trait_generics> for #ident #ident_generics
                 where
@@ -857,7 +853,7 @@ fn impl_struct_by_extracting_all_at_once(
                 {
                     type Rejection = #associated_rejection_type;
 
-                    async fn from_request_parts(
+                    fn from_request_parts<'a>(
                         parts: &mut ::axum::http::request::Parts,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -938,7 +934,6 @@ fn impl_enum_by_extracting_all_at_once(
     let tokens = match tr {
         Trait::FromRequest => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequest<#trait_generics> for #ident
                 where
@@ -949,7 +944,7 @@ fn impl_enum_by_extracting_all_at_once(
                 {
                     type Rejection = #associated_rejection_type;
 
-                    async fn from_request(
+                    fn from_request(
                         req: ::axum::http::Request<B>,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -963,7 +958,6 @@ fn impl_enum_by_extracting_all_at_once(
         }
         Trait::FromRequestParts => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequestParts<#trait_generics> for #ident
                 where
@@ -971,7 +965,7 @@ fn impl_enum_by_extracting_all_at_once(
                 {
                     type Rejection = #associated_rejection_type;
 
-                    async fn from_request_parts(
+                    fn from_request_parts<'a>(
                         parts: &mut ::axum::http::request::Parts,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {

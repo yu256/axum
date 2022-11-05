@@ -185,10 +185,10 @@ macro_rules! impl_handler {
             $( $ty: FromRequestParts<S> + Send, )*
             $last: FromRequest<S, B, M> + Send,
         {
-            type Future = Pin<Box<dyn Future<Output = Response> + Send>>;
+            type Future = impl Future<Output = Response> + Send + 'static;
 
             fn call(self, req: Request<B>, state: S) -> Self::Future {
-                Box::pin(async move {
+                async move {
                     let (mut parts, body) = req.into_parts();
                     let state = &state;
 
@@ -209,7 +209,7 @@ macro_rules! impl_handler {
                     let res = self($($ty,)* $last,).await;
 
                     res.into_response()
-                })
+                }
             }
         }
     };

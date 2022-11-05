@@ -5,13 +5,13 @@
 use super::{BodyStream, FromRequest};
 use crate::body::{Bytes, HttpBody};
 use crate::BoxError;
-use async_trait::async_trait;
 use axum_core::RequestExt;
 use futures_util::stream::Stream;
 use http::header::{HeaderMap, CONTENT_TYPE};
 use http::Request;
 use std::{
     fmt,
+    future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -54,7 +54,6 @@ pub struct Multipart {
     inner: multer::Multipart<'static>,
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for Multipart
 where
     B: HttpBody + Send + 'static,
@@ -64,15 +63,20 @@ where
 {
     type Rejection = MultipartRejection;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-        let boundary = parse_boundary(req.headers()).ok_or(InvalidBoundary)?;
-        let stream_result = match req.with_limited_body() {
-            Ok(limited) => BodyStream::from_request(limited, state).await,
-            Err(unlimited) => BodyStream::from_request(unlimited, state).await,
-        };
-        let stream = stream_result.unwrap_or_else(|err| match err {});
-        let multipart = multer::Multipart::new(stream, boundary);
-        Ok(Self { inner: multipart })
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            let boundary = parse_boundary(req.headers()).ok_or(InvalidBoundary)?;
+            let stream_result = match req.with_limited_body() {
+                Ok(limited) => BodyStream::from_request(limited, state).await,
+                Err(unlimited) => BodyStream::from_request(unlimited, state).await,
+            };
+            let stream = stream_result.unwrap_or_else(|err| match err {});
+            let multipart = multer::Multipart::new(stream, boundary);
+            Ok(Self { inner: multipart })
+        }
     }
 }
 

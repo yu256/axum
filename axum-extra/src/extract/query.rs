@@ -1,9 +1,6 @@
-use axum::{
-    async_trait,
-    extract::{
-        rejection::{FailedToDeserializeQueryString, QueryRejection},
-        FromRequestParts,
-    },
+use axum::extract::{
+    rejection::{FailedToDeserializeQueryString, QueryRejection},
+    FromRequestParts,
 };
 use http::request::Parts;
 use serde::de::DeserializeOwned;
@@ -58,7 +55,6 @@ use std::ops::Deref;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Query<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Query<T>
 where
     T: DeserializeOwned,
@@ -66,7 +62,7 @@ where
 {
     type Rejection = QueryRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let query = parts.uri.query().unwrap_or_default();
         let value = serde_html_form::from_str(query)
             .map_err(FailedToDeserializeQueryString::__private_new)?;

@@ -390,6 +390,7 @@
 //! [`axum-core`]: http://crates.io/crates/axum-core
 //! [`State`]: crate::extract::State
 
+#![feature(return_position_impl_trait_in_trait, type_alias_impl_trait)]
 #![warn(
     clippy::all,
     clippy::dbg_macro,
@@ -426,7 +427,12 @@
     missing_docs
 )]
 #![deny(unreachable_pub, private_in_public)]
-#![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
+#![allow(
+    elided_lifetimes_in_paths,
+    incomplete_features,
+    clippy::manual_async_fn,
+    clippy::type_complexity
+)]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg))]
 #![cfg_attr(test, allow(clippy::float_cmp))]
@@ -455,8 +461,6 @@ pub mod routing;
 #[cfg(test)]
 mod test_helpers;
 
-#[doc(no_inline)]
-pub use async_trait::async_trait;
 #[cfg(feature = "headers")]
 #[doc(no_inline)]
 pub use headers;

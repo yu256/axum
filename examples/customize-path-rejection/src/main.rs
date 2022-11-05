@@ -5,7 +5,6 @@
 //! ```
 
 use axum::{
-    async_trait,
     extract::{path::ErrorKind, rejection::PathRejection, FromRequestParts},
     http::{request::Parts, StatusCode},
     response::IntoResponse,
@@ -51,7 +50,6 @@ struct Params {
 // We define our own `Path` extractor that customizes the error from `axum::extract::Path`
 struct Path<T>(T);
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Path<T>
 where
     // these trait bounds are copied from `impl FromRequest for axum::extract::path::Path`
@@ -60,7 +58,7 @@ where
 {
     type Rejection = (StatusCode, axum::Json<PathError>);
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Result<Self, Self::Rejection> {
         match axum::extract::Path::<T>::from_request_parts(parts, state).await {
             Ok(value) => Ok(Self(value.0)),
             Err(rejection) => {

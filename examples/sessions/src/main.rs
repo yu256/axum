@@ -6,7 +6,6 @@
 
 use async_session::{MemoryStore, Session, SessionStore as _};
 use axum::{
-    async_trait,
     extract::{FromRef, FromRequestParts, TypedHeader},
     headers::Cookie,
     http::{
@@ -80,7 +79,6 @@ enum UserIdFromSession {
     CreatedFreshUserId(FreshUserId),
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for UserIdFromSession
 where
     MemoryStore: FromRef<S>,
@@ -88,7 +86,7 @@ where
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Result<Self, Self::Rejection> {
         let store = MemoryStore::from_ref(state);
 
         let cookie: Option<TypedHeader<Cookie>> = parts.extract().await.unwrap();

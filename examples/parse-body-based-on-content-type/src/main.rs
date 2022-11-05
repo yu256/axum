@@ -7,7 +7,6 @@
 //! ```
 
 use axum::{
-    async_trait,
     extract::FromRequest,
     http::{header::CONTENT_TYPE, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -56,7 +55,6 @@ enum JsonOrForm<T, K = T> {
     Form(K),
 }
 
-#[async_trait]
 impl<S, B, T, U> FromRequest<S, B> for JsonOrForm<T, U>
 where
     B: Send + 'static,
@@ -68,7 +66,7 @@ where
 {
     type Rejection = Response;
 
-    async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
         let content_type_header = req.headers().get(CONTENT_TYPE);
         let content_type = content_type_header.and_then(|value| value.to_str().ok());
 

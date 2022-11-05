@@ -2,11 +2,11 @@ use super::{
     rejection::{FailedToResolveHost, HostRejection},
     FromRequestParts,
 };
-use async_trait::async_trait;
 use http::{
     header::{HeaderMap, FORWARDED},
     request::Parts,
 };
+use std::future::Future;
 
 const X_FORWARDED_HOST_HEADER_KEY: &str = "X-Forwarded-Host";
 
@@ -23,39 +23,43 @@ const X_FORWARDED_HOST_HEADER_KEY: &str = "X-Forwarded-Host";
 #[derive(Debug, Clone)]
 pub struct Host(pub String);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Host
 where
     S: Send + Sync,
 {
     type Rejection = HostRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        if let Some(host) = parse_forwarded(&parts.headers) {
-            return Ok(Host(host.to_owned()));
-        }
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        _state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            if let Some(host) = parse_forwarded(&parts.headers) {
+                return Ok(Host(host.to_owned()));
+            }
 
-        if let Some(host) = parts
-            .headers
-            .get(X_FORWARDED_HOST_HEADER_KEY)
-            .and_then(|host| host.to_str().ok())
-        {
-            return Ok(Host(host.to_owned()));
-        }
+            if let Some(host) = parts
+                .headers
+                .get(X_FORWARDED_HOST_HEADER_KEY)
+                .and_then(|host| host.to_str().ok())
+            {
+                return Ok(Host(host.to_owned()));
+            }
 
-        if let Some(host) = parts
-            .headers
-            .get(http::header::HOST)
-            .and_then(|host| host.to_str().ok())
-        {
-            return Ok(Host(host.to_owned()));
-        }
+            if let Some(host) = parts
+                .headers
+                .get(http::header::HOST)
+                .and_then(|host| host.to_str().ok())
+            {
+                return Ok(Host(host.to_owned()));
+            }
 
-        if let Some(host) = parts.uri.host() {
-            return Ok(Host(host.to_owned()));
-        }
+            if let Some(host) = parts.uri.host() {
+                return Ok(Host(host.to_owned()));
+            }
 
-        Err(HostRejection::FailedToResolveHost(FailedToResolveHost))
+            Err(HostRejection::FailedToResolveHost(FailedToResolveHost))
+        }
     }
 }
 

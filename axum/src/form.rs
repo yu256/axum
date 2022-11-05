@@ -1,14 +1,13 @@
 use crate::body::HttpBody;
 use crate::extract::{rejection::*, FromRequest, RawForm};
 use crate::BoxError;
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, Response};
 use axum_core::RequestExt;
 use http::header::CONTENT_TYPE;
 use http::{Request, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::ops::Deref;
+use std::{future::Future, ops::Deref};
 
 /// URL encoded extractor and response.
 ///
@@ -61,10 +60,9 @@ use std::ops::Deref;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Form<T>(pub T);
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for Form<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,
@@ -72,16 +70,21 @@ where
 {
     type Rejection = FormRejection;
 
-    async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
-        match req.extract().await {
-            Ok(RawForm(bytes)) => {
-                let value = serde_urlencoded::from_bytes(&bytes)
-                    .map_err(FailedToDeserializeQueryString::__private_new)?;
-                Ok(Form(value))
-            }
-            Err(RawFormRejection::BytesRejection(r)) => Err(FormRejection::BytesRejection(r)),
-            Err(RawFormRejection::InvalidFormContentType(r)) => {
-                Err(FormRejection::InvalidFormContentType(r))
+    fn from_request(
+        req: Request<B>,
+        _state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            match req.extract().await {
+                Ok(RawForm(bytes)) => {
+                    let value = serde_urlencoded::from_bytes(&bytes)
+                        .map_err(FailedToDeserializeQueryString::__private_new)?;
+                    Ok(Form(value))
+                }
+                Err(RawFormRejection::BytesRejection(r)) => Err(FormRejection::BytesRejection(r)),
+                Err(RawFormRejection::InvalidFormContentType(r)) => {
+                    Err(FormRejection::InvalidFormContentType(r))
+                }
             }
         }
     }
@@ -126,7 +129,10 @@ mod tests {
         page: Option<u64>,
     }
 
-    async fn check_query<T: DeserializeOwned + PartialEq + Debug>(uri: impl AsRef<str>, value: T) {
+    async fn check_query<T>(uri: impl AsRef<str>, value: T)
+    where
+        T: DeserializeOwned + PartialEq + Debug + 'static,
+    {
         let req = Request::builder()
             .uri(uri.as_ref())
             .body(Empty::<Bytes>::new())
@@ -134,7 +140,10 @@ mod tests {
         assert_eq!(Form::<T>::from_request(req, &()).await.unwrap().0, value);
     }
 
-    async fn check_body<T: Serialize + DeserializeOwned + PartialEq + Debug>(value: T) {
+    async fn check_body<T>(value: T)
+    where
+        T: Serialize + DeserializeOwned + PartialEq + Debug + 'static,
+    {
         let req = Request::builder()
             .uri("http://example.com/test")
             .method(Method::POST)

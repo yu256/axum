@@ -3,7 +3,6 @@ use crate::{
     extract::{rejection::*, FromRequest},
     BoxError,
 };
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, Response};
 use bytes::{BufMut, BytesMut};
 use http::{
@@ -11,7 +10,10 @@ use http::{
     Request, StatusCode,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::{
+    future::Future,
+    ops::{Deref, DerefMut},
+};
 
 /// JSON Extractor / Response.
 ///
@@ -99,10 +101,9 @@ use std::ops::{Deref, DerefMut};
 #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 pub struct Json<T>(pub T);
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for Json<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,
@@ -110,36 +111,44 @@ where
 {
     type Rejection = JsonRejection;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-        if json_content_type(req.headers()) {
-            let bytes = Bytes::from_request(req, state).await?;
-            let deserializer = &mut serde_json::Deserializer::from_slice(&bytes);
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            if json_content_type(req.headers()) {
+                let bytes = Bytes::from_request(req, state).await?;
+                let deserializer = &mut serde_json::Deserializer::from_slice(&bytes);
 
-            let value = match serde_path_to_error::deserialize(deserializer) {
-                Ok(value) => value,
-                Err(err) => {
-                    let rejection = match err.inner().classify() {
-                        serde_json::error::Category::Data => JsonDataError::from_err(err).into(),
-                        serde_json::error::Category::Syntax | serde_json::error::Category::Eof => {
-                            JsonSyntaxError::from_err(err).into()
-                        }
-                        serde_json::error::Category::Io => {
-                            if cfg!(debug_assertions) {
-                                // we don't use `serde_json::from_reader` and instead always buffer
-                                // bodies first, so we shouldn't encounter any IO errors
-                                unreachable!()
-                            } else {
+                let value = match serde_path_to_error::deserialize(deserializer) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        let rejection = match err.inner().classify() {
+                            serde_json::error::Category::Data => {
+                                JsonDataError::from_err(err).into()
+                            }
+                            serde_json::error::Category::Syntax
+                            | serde_json::error::Category::Eof => {
                                 JsonSyntaxError::from_err(err).into()
                             }
-                        }
-                    };
-                    return Err(rejection);
-                }
-            };
+                            serde_json::error::Category::Io => {
+                                if cfg!(debug_assertions) {
+                                    // we don't use `serde_json::from_reader` and instead always buffer
+                                    // bodies first, so we shouldn't encounter any IO errors
+                                    unreachable!()
+                                } else {
+                                    JsonSyntaxError::from_err(err).into()
+                                }
+                            }
+                        };
+                        return Err(rejection);
+                    }
+                };
 
-            Ok(Json(value))
-        } else {
-            Err(MissingJsonContentType.into())
+                Ok(Json(value))
+            } else {
+                Err(MissingJsonContentType.into())
+            }
         }
     }
 }

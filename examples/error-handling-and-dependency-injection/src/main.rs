@@ -8,7 +8,6 @@
 //! ```
 
 use axum::{
-    async_trait,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -109,7 +108,6 @@ impl IntoResponse for AppError {
 /// Example implementation of `UserRepo`.
 struct ExampleUserRepo;
 
-#[async_trait]
 impl UserRepo for ExampleUserRepo {
     async fn find(&self, _user_id: Uuid) -> Result<User, UserRepoError> {
         unimplemented!()
@@ -124,7 +122,6 @@ impl UserRepo for ExampleUserRepo {
 type DynUserRepo = Arc<dyn UserRepo + Send + Sync>;
 
 /// A trait that defines things a user repo might support.
-#[async_trait]
 trait UserRepo {
     /// Loop up a user by their id.
     async fn find(&self, user_id: Uuid) -> Result<User, UserRepoError>;

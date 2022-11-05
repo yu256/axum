@@ -45,7 +45,7 @@ pub trait HandlerCallWithExtractors<T, S, B>: Sized {
     /// use axum_extra::handler::HandlerCallWithExtractors;
     /// use axum::{
     ///     Router,
-    ///     async_trait,
+    ///
     ///     routing::get,
     ///     extract::FromRequestParts,
     /// };
@@ -66,28 +66,26 @@ pub trait HandlerCallWithExtractors<T, S, B>: Sized {
     /// // extractors for checking permissions
     /// struct AdminPermissions {}
     ///
-    /// #[async_trait]
     /// impl<S> FromRequestParts<S> for AdminPermissions
     /// where
     ///     S: Send + Sync,
     /// {
     ///     // check for admin permissions...
     ///     # type Rejection = ();
-    ///     # async fn from_request_parts(parts: &mut http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+    ///     # fn from_request_parts<'a>(parts: &mut http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
     ///     #     todo!()
     ///     # }
     /// }
     ///
     /// struct User {}
     ///
-    /// #[async_trait]
     /// impl<S> FromRequestParts<S> for User
     /// where
     ///     S: Send + Sync,
     /// {
     ///     // check for a logged in user...
     ///     # type Rejection = ();
-    ///     # async fn from_request_parts(parts: &mut http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+    ///     # fn from_request_parts<'a>(parts: &mut http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
     ///     #     todo!()
     ///     # }
     /// }

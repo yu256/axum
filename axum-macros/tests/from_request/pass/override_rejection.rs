@@ -1,7 +1,6 @@
 use axum::{
-    async_trait,
     extract::{rejection::ExtensionRejection, FromRequest},
-    http::{StatusCode, Request},
+    http::{Request, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Extension, Router,
@@ -27,7 +26,6 @@ struct MyExtractor {
 
 struct OtherExtractor;
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for OtherExtractor
 where
     B: Send + 'static,
@@ -36,7 +34,7 @@ where
     // this rejection doesn't implement `Display` and `Error`
     type Rejection = (StatusCode, String);
 
-    async fn from_request(_req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request(_req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
         todo!()
     }
 }

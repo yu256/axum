@@ -1,4 +1,4 @@
-use axum::{async_trait, extract::FromRequestParts, http::request::Parts, response::IntoResponse};
+use axum::{extract::FromRequestParts, http::request::Parts, response::IntoResponse};
 use axum_macros::debug_handler;
 
 fn main() {}
@@ -115,14 +115,13 @@ impl A {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for A
 where
     S: Send + Sync,
 {
     type Rejection = ();
 
-    async fn from_request_parts(_parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(_parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         unimplemented!()
     }
 }

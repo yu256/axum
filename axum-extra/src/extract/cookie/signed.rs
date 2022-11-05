@@ -1,6 +1,5 @@
 use super::{cookies_from_request, set_cookies};
 use axum::{
-    async_trait,
     extract::{FromRef, FromRequestParts},
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
@@ -104,7 +103,6 @@ impl<K> fmt::Debug for SignedCookieJar<K> {
     }
 }
 
-#[async_trait]
 impl<S, K> FromRequestParts<S> for SignedCookieJar<K>
 where
     S: Send + Sync,
@@ -112,7 +110,7 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Result<Self, Self::Rejection> {
         let k = K::from_ref(state);
         let key = k.into();
         let SignedCookieJar {

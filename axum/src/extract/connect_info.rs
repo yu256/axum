@@ -6,13 +6,12 @@
 
 use super::{Extension, FromRequestParts};
 use crate::middleware::AddExtension;
-use async_trait::async_trait;
 use http::request::Parts;
 use hyper::server::conn::AddrStream;
 use std::{
     convert::Infallible,
     fmt,
-    future::ready,
+    future::{ready, Future},
     marker::PhantomData,
     net::SocketAddr,
     task::{Context, Poll},
@@ -128,7 +127,6 @@ opaque_future! {
 #[derive(Clone, Copy, Debug)]
 pub struct ConnectInfo<T>(pub T);
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for ConnectInfo<T>
 where
     S: Send + Sync,
@@ -136,9 +134,15 @@ where
 {
     type Rejection = <Extension<Self> as FromRequestParts<S>>::Rejection;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Extension(connect_info) = Extension::<Self>::from_request_parts(parts, state).await?;
-        Ok(connect_info)
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let Extension(connect_info) =
+                Extension::<Self>::from_request_parts(parts, state).await?;
+            Ok(connect_info)
+        }
     }
 }
 

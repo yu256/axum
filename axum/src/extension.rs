@@ -1,5 +1,4 @@
 use crate::{extract::rejection::*, response::IntoResponseParts};
-use async_trait::async_trait;
 use axum_core::{
     extract::FromRequestParts,
     response::{IntoResponse, Response, ResponseParts},
@@ -7,6 +6,7 @@ use axum_core::{
 use http::{request::Parts, Request};
 use std::{
     convert::Infallible,
+    future::Future,
     ops::Deref,
     task::{Context, Poll},
 };
@@ -72,7 +72,6 @@ use tower_service::Service;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Extension<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Extension<T>
 where
     T: Clone + Send + Sync + 'static,
@@ -80,8 +79,12 @@ where
 {
     type Rejection = ExtensionRejection;
 
-    async fn from_request_parts(req: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let value = req
+    fn from_request_parts<'a>(
+        req: &'a mut Parts,
+        _state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + 'a {
+        async move {
+            let value = req
             .extensions
             .get::<T>()
             .ok_or_else(|| {
@@ -92,7 +95,8 @@ where
             })
             .map(|x| x.clone())?;
 
-        Ok(Extension(value))
+            Ok(Extension(value))
+        }
     }
 }
 

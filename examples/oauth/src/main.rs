@@ -10,7 +10,6 @@
 
 use async_session::{MemoryStore, Session, SessionStore};
 use axum::{
-    async_trait,
     extract::{
         rejection::TypedHeaderRejectionReason, FromRef, FromRequestParts, Query, State, TypedHeader,
     },
@@ -222,7 +221,6 @@ impl IntoResponse for AuthRedirect {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for User
 where
     MemoryStore: FromRef<S>,
@@ -231,7 +229,7 @@ where
     // If anything goes wrong or no session is found, redirect to the auth page
     type Rejection = AuthRedirect;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Result<Self, Self::Rejection> {
         let store = MemoryStore::from_ref(state);
 
         let cookies = parts

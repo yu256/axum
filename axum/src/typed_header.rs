@@ -1,9 +1,8 @@
 use crate::extract::FromRequestParts;
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, IntoResponseParts, Response, ResponseParts};
 use headers::HeaderMapExt;
 use http::request::Parts;
-use std::{convert::Infallible, ops::Deref};
+use std::{convert::Infallible, future::Future, ops::Deref};
 
 /// Extractor and response that works with typed header values from [`headers`].
 ///
@@ -52,25 +51,28 @@ use std::{convert::Infallible, ops::Deref};
 #[derive(Debug, Clone, Copy)]
 pub struct TypedHeader<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for TypedHeader<T>
 where
     T: headers::Header,
-    S: Send + Sync,
 {
     type Rejection = TypedHeaderRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        match parts.headers.typed_try_get::<T>() {
-            Ok(Some(value)) => Ok(Self(value)),
-            Ok(None) => Err(TypedHeaderRejection {
-                name: T::name(),
-                reason: TypedHeaderRejectionReason::Missing,
-            }),
-            Err(err) => Err(TypedHeaderRejection {
-                name: T::name(),
-                reason: TypedHeaderRejectionReason::Error(err),
-            }),
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        _state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            match parts.headers.typed_try_get::<T>() {
+                Ok(Some(value)) => Ok(Self(value)),
+                Ok(None) => Err(TypedHeaderRejection {
+                    name: T::name(),
+                    reason: TypedHeaderRejectionReason::Missing,
+                }),
+                Err(err) => Err(TypedHeaderRejection {
+                    name: T::name(),
+                    reason: TypedHeaderRejectionReason::Error(err),
+                }),
+            }
         }
     }
 }

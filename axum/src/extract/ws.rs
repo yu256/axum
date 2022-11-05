@@ -101,7 +101,6 @@ use crate::{
     response::Response,
     Error,
 };
-use async_trait::async_trait;
 use futures_util::{
     sink::{Sink, SinkExt},
     stream::{Stream, StreamExt},
@@ -275,14 +274,13 @@ impl WebSocketUpgrade {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for WebSocketUpgrade
 where
     S: Send + Sync,
 {
     type Rejection = WebSocketUpgradeRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         if parts.method != Method::GET {
             return Err(MethodNotGet.into());
         }

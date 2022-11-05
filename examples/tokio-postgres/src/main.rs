@@ -5,7 +5,6 @@
 //! ```
 
 use axum::{
-    async_trait,
     extract::{FromRef, FromRequestParts, State},
     http::{request::Parts, StatusCode},
     routing::get,
@@ -67,7 +66,6 @@ async fn using_connection_pool_extractor(
 // which setup is appropriate depends on your application
 struct DatabaseConnection(PooledConnection<'static, PostgresConnectionManager<NoTls>>);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for DatabaseConnection
 where
     ConnectionPool: FromRef<S>,
@@ -75,7 +73,10 @@ where
 {
     type Rejection = (StatusCode, String);
 
-    async fn from_request_parts(_parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts<'a>(
+        _parts: &'a mut Parts,
+        state: &'a S,
+    ) -> Result<Self, Self::Rejection> {
         let pool = ConnectionPool::from_ref(state);
 
         let conn = pool.get_owned().await.map_err(internal_error)?;

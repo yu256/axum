@@ -39,19 +39,17 @@ use tower_service::Service;
 ///     Router,
 ///     http::{header, StatusCode, request::Parts},
 /// };
-/// use async_trait::async_trait;
-///
+/// ///
 /// // An extractor that performs authorization.
 /// struct RequireAuth;
 ///
-/// #[async_trait]
 /// impl<S> FromRequestParts<S> for RequireAuth
 /// where
 ///     S: Send + Sync,
 /// {
 ///     type Rejection = StatusCode;
 ///
-///     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+///     fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Result<Self, Self::Rejection> {
 ///         let auth_header = parts
 ///             .headers
 ///             .get(header::AUTHORIZATION)
@@ -304,9 +302,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{async_trait, handler::Handler, routing::get, test_helpers::*, Router};
+    use crate::{handler::Handler, routing::get, test_helpers::*, Router};
     use axum_core::extract::FromRef;
     use http::{header, request::Parts, StatusCode};
+    use std::future::Future;
     use tower_http::limit::RequestBodyLimitLayer;
 
     #[tokio::test]
@@ -316,7 +315,6 @@ mod tests {
 
         struct RequireAuth;
 
-        #[async_trait::async_trait]
         impl<S> FromRequestParts<S> for RequireAuth
         where
             S: Send + Sync,
@@ -324,22 +322,24 @@ mod tests {
         {
             type Rejection = StatusCode;
 
-            async fn from_request_parts(
-                parts: &mut Parts,
-                state: &S,
-            ) -> Result<Self, Self::Rejection> {
-                let Secret(secret) = Secret::from_ref(state);
-                if let Some(auth) = parts
-                    .headers
-                    .get(header::AUTHORIZATION)
-                    .and_then(|v| v.to_str().ok())
-                {
-                    if auth == secret {
-                        return Ok(Self);
+            fn from_request_parts<'a>(
+                parts: &'a mut Parts,
+                state: &'a S,
+            ) -> impl Future<Output = Result<Self, Self::Rejection>> + 'a {
+                async move {
+                    let Secret(secret) = Secret::from_ref(state);
+                    if let Some(auth) = parts
+                        .headers
+                        .get(header::AUTHORIZATION)
+                        .and_then(|v| v.to_str().ok())
+                    {
+                        if auth == secret {
+                            return Ok(Self);
+                        }
                     }
-                }
 
-                Err(StatusCode::UNAUTHORIZED)
+                    Err(StatusCode::UNAUTHORIZED)
+                }
             }
         }
 
@@ -369,18 +369,17 @@ mod tests {
     fn works_with_request_body_limit() {
         struct MyExtractor;
 
-        #[async_trait]
         impl<S> FromRequestParts<S> for MyExtractor
         where
             S: Send + Sync,
         {
             type Rejection = std::convert::Infallible;
 
-            async fn from_request_parts(
-                _parts: &mut Parts,
-                _state: &S,
-            ) -> Result<Self, Self::Rejection> {
-                unimplemented!()
+            fn from_request_parts<'a>(
+                _parts: &'a mut Parts,
+                _state: &'a S,
+            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+                async move { unimplemented!() }
             }
         }
 

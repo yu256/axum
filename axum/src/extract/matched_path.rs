@@ -1,7 +1,6 @@
 use super::{rejection::*, FromRequestParts};
-use async_trait::async_trait;
 use http::request::Parts;
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 /// Access the path in the router that matches the request.
 ///
@@ -64,21 +63,25 @@ impl MatchedPath {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for MatchedPath
 where
     S: Send + Sync,
 {
     type Rejection = MatchedPathRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let matched_path = parts
-            .extensions
-            .get::<Self>()
-            .ok_or(MatchedPathRejection::MatchedPathMissing(MatchedPathMissing))?
-            .clone();
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        _state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let matched_path = parts
+                .extensions
+                .get::<Self>()
+                .ok_or(MatchedPathRejection::MatchedPathMissing(MatchedPathMissing))?
+                .clone();
 
-        Ok(matched_path)
+            Ok(matched_path)
+        }
     }
 }
 

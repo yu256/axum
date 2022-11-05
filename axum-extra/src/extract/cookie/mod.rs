@@ -3,7 +3,6 @@
 //! See [`CookieJar`], [`SignedCookieJar`], and [`PrivateCookieJar`] for more details.
 
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
@@ -12,7 +11,7 @@ use http::{
     request::Parts,
     HeaderMap,
 };
-use std::convert::Infallible;
+use std::{convert::Infallible, future::Future};
 
 #[cfg(feature = "cookie-private")]
 mod private;
@@ -88,15 +87,17 @@ pub struct CookieJar {
     jar: cookie::CookieJar,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for CookieJar
 where
     S: Send + Sync,
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(Self::from_headers(&parts.headers))
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        _state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move { Ok(Self::from_headers(&parts.headers)) }
     }
 }
 

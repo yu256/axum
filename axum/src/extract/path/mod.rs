@@ -7,12 +7,12 @@ use crate::{
     extract::{rejection::*, FromRequestParts},
     routing::url_params::UrlParams,
 };
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, Response};
 use http::{request::Parts, StatusCode};
 use serde::de::DeserializeOwned;
 use std::{
     fmt,
+    future::Future,
     ops::{Deref, DerefMut},
 };
 
@@ -166,36 +166,40 @@ impl<T> DerefMut for Path<T> {
     }
 }
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Path<T>
 where
-    T: DeserializeOwned + Send,
-    S: Send + Sync,
+    T: DeserializeOwned + Send + 'static,
+    S: Sync,
 {
     type Rejection = PathRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let params = match parts.extensions.get::<UrlParams>() {
-            Some(UrlParams::Params(params)) => params,
-            Some(UrlParams::InvalidUtf8InPathParam { key }) => {
-                let err = PathDeserializationError {
-                    kind: ErrorKind::InvalidUtf8InPathParam {
-                        key: key.to_string(),
-                    },
-                };
-                let err = FailedToDeserializePathParams(err);
-                return Err(err.into());
-            }
-            None => {
-                return Err(MissingPathParams.into());
-            }
-        };
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        _state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let params = match parts.extensions.get::<UrlParams>() {
+                Some(UrlParams::Params(params)) => params,
+                Some(UrlParams::InvalidUtf8InPathParam { key }) => {
+                    let err = PathDeserializationError {
+                        kind: ErrorKind::InvalidUtf8InPathParam {
+                            key: key.to_string(),
+                        },
+                    };
+                    let err = FailedToDeserializePathParams(err);
+                    return Err(err.into());
+                }
+                None => {
+                    return Err(MissingPathParams.into());
+                }
+            };
 
-        T::deserialize(de::PathDeserializer::new(params))
-            .map_err(|err| {
-                PathRejection::FailedToDeserializePathParams(FailedToDeserializePathParams(err))
-            })
-            .map(Path)
+            T::deserialize(de::PathDeserializer::new(params))
+                .map_err(|err| {
+                    PathRejection::FailedToDeserializePathParams(FailedToDeserializePathParams(err))
+                })
+                .map(Path)
+        }
     }
 }
 

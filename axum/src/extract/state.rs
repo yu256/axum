@@ -1,14 +1,14 @@
-use async_trait::async_trait;
 use axum_core::extract::{FromRef, FromRequestParts};
 use http::request::Parts;
 use std::{
     convert::Infallible,
+    future::Future,
     ops::{Deref, DerefMut},
 };
 
 /// Extractor for state.
 ///
-/// See ["Accessing state in middleware"][state-from-middleware] for how to  
+/// See ["Accessing state in middleware"][state-from-middleware] for how to
 /// access state in middleware.
 ///
 /// [state-from-middleware]: crate::middleware#accessing-state-in-middleware
@@ -145,13 +145,11 @@ use std::{
 /// ```rust
 /// use axum_core::extract::{FromRequestParts, FromRef};
 /// use http::request::Parts;
-/// use async_trait::async_trait;
-/// use std::convert::Infallible;
+/// /// use std::convert::Infallible;
 ///
 /// // the extractor your library provides
 /// struct MyLibraryExtractor;
 ///
-/// #[async_trait]
 /// impl<S> FromRequestParts<S> for MyLibraryExtractor
 /// where
 ///     // keep `S` generic but require that it can produce a `MyLibraryState`
@@ -161,7 +159,7 @@ use std::{
 /// {
 ///     type Rejection = Infallible;
 ///
-///     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+///     fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Result<Self, Self::Rejection> {
 ///         // get a `MyLibraryState` from a reference to the state
 ///         let state = MyLibraryState::from_ref(state);
 ///
@@ -225,20 +223,21 @@ use std::{
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State<S>(pub S);
 
-#[async_trait]
 impl<OuterState, InnerState> FromRequestParts<OuterState> for State<InnerState>
 where
-    InnerState: FromRef<OuterState>,
+    InnerState: FromRef<OuterState> + 'static,
     OuterState: Send + Sync,
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(
-        _parts: &mut Parts,
-        state: &OuterState,
-    ) -> Result<Self, Self::Rejection> {
-        let inner_state = InnerState::from_ref(state);
-        Ok(Self(inner_state))
+    fn from_request_parts<'a>(
+        _parts: &'a mut Parts,
+        state: &'a OuterState,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let inner_state = InnerState::from_ref(state);
+            Ok(Self(inner_state))
+        }
     }
 }
 

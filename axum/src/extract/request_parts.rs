@@ -3,12 +3,12 @@ use crate::{
     body::{Body, Bytes, HttpBody},
     BoxError, Error,
 };
-use async_trait::async_trait;
 use futures_util::stream::Stream;
 use http::{request::Parts, Request, Uri};
 use std::{
     convert::Infallible,
     fmt,
+    future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -85,19 +85,23 @@ use sync_wrapper::SyncWrapper;
 pub struct OriginalUri(pub Uri);
 
 #[cfg(feature = "original-uri")]
-#[async_trait]
 impl<S> FromRequestParts<S> for OriginalUri
 where
     S: Send + Sync,
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let uri = Extension::<Self>::from_request_parts(parts, state)
-            .await
-            .unwrap_or_else(|_| Extension(OriginalUri(parts.uri.clone())))
-            .0;
-        Ok(uri)
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let uri = Extension::<Self>::from_request_parts(parts, state)
+                .await
+                .unwrap_or_else(|_| Extension(OriginalUri(parts.uri.clone())))
+                .0;
+            Ok(uri)
+        }
     }
 }
 
@@ -145,7 +149,6 @@ impl Stream for BodyStream {
     }
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for BodyStream
 where
     B: HttpBody + Send + 'static,
@@ -155,13 +158,18 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
-        let body = req
-            .into_body()
-            .map_data(Into::into)
-            .map_err(|err| Error::new(err.into()));
-        let stream = BodyStream(SyncWrapper::new(Box::pin(body)));
-        Ok(stream)
+    fn from_request(
+        req: Request<B>,
+        _state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            let body = req
+                .into_body()
+                .map_data(Into::into)
+                .map_err(|err| Error::new(err.into()));
+            let stream = BodyStream(SyncWrapper::new(Box::pin(body)));
+            Ok(stream)
+        }
     }
 }
 
@@ -208,16 +216,18 @@ fn body_stream_traits() {
 #[derive(Debug, Default, Clone)]
 pub struct RawBody<B = Body>(pub B);
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for RawBody<B>
 where
-    B: Send,
+    B: Send + 'static,
     S: Send + Sync,
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(Self(req.into_body()))
+    fn from_request(
+        req: Request<B>,
+        _state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move { Ok(Self(req.into_body())) }
     }
 }
 

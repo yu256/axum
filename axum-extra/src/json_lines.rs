@@ -1,7 +1,6 @@
 //! Newline delimited JSON extractor and response.
 
 use axum::{
-    async_trait,
     body::{HttpBody, StreamBody},
     extract::FromRequest,
     response::{IntoResponse, Response},
@@ -99,7 +98,6 @@ impl<S> JsonLines<S, AsResponse> {
     }
 }
 
-#[async_trait]
 impl<S, B, T> FromRequest<S, B> for JsonLines<T, AsExtractor>
 where
     B: HttpBody + Send + 'static,
@@ -110,7 +108,7 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
         // `Stream::lines` isn't a thing so we have to convert it into an `AsyncRead`
         // so we can call `AsyncRead::lines` and then convert it back to a `Stream`
         let body = BodyStream {

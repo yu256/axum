@@ -410,7 +410,7 @@ request body:
 
 ```rust,no_run
 use axum::{
-    async_trait,
+    
     extract::FromRequestParts,
     routing::get,
     Router,
@@ -423,14 +423,13 @@ use axum::{
 
 struct ExtractUserAgent(HeaderValue);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractUserAgent
 where
     S: Send + Sync,
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts<'a>(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         if let Some(user_agent) = parts.headers.get(USER_AGENT) {
             Ok(ExtractUserAgent(user_agent.clone()))
         } else {
@@ -455,7 +454,7 @@ If your extractor needs to consume the request body you must implement [`FromReq
 
 ```rust,no_run
 use axum::{
-    async_trait,
+    
     extract::FromRequest,
     response::{Response, IntoResponse},
     body::Bytes,
@@ -470,7 +469,6 @@ use axum::{
 
 struct ValidatedBody(Bytes);
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for ValidatedBody
 where
     Bytes: FromRequest<S, B>,
@@ -512,7 +510,7 @@ use axum::{
     routing::get,
     extract::{FromRequest, FromRequestParts},
     http::{Request, request::Parts},
-    async_trait,
+    
 };
 use std::convert::Infallible;
 
@@ -520,7 +518,6 @@ use std::convert::Infallible;
 struct MyExtractor;
 
 // `MyExtractor` implements both `FromRequest`
-#[async_trait]
 impl<S, B> FromRequest<S, B> for MyExtractor
 where
     S: Send + Sync,
@@ -535,14 +532,13 @@ where
 }
 
 // and `FromRequestParts`
-#[async_trait]
 impl<S> FromRequestParts<S> for MyExtractor
 where
     S: Send + Sync,
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts<'a>(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         // ...
         # todo!()
     }
@@ -569,7 +565,7 @@ in your implementation.
 
 ```rust
 use axum::{
-    async_trait,
+    
     extract::{Extension, FromRequestParts, TypedHeader},
     headers::{authorization::Bearer, Authorization},
     http::{StatusCode, request::Parts},
@@ -587,14 +583,13 @@ struct AuthenticatedUser {
     // ...
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
     S: Send + Sync,
 {
     type Rejection = Response;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts<'a>(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         // You can either call them directly...
         let TypedHeader(Authorization(token)) =
             TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
@@ -766,7 +761,7 @@ use axum::{
     routing::get,
     extract::{FromRequest, FromRequestParts},
     http::{Request, HeaderMap, request::Parts},
-    async_trait,
+    
 };
 use std::time::{Instant, Duration};
 
@@ -777,7 +772,6 @@ struct Timing<E> {
 }
 
 // we must implement both `FromRequestParts`
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Timing<T>
 where
     S: Send + Sync,
@@ -785,7 +779,7 @@ where
 {
     type Rejection = T::Rejection;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts<'a>(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let start = Instant::now();
         let extractor = T::from_request_parts(parts, state).await?;
         let duration = start.elapsed();
@@ -797,7 +791,6 @@ where
 }
 
 // and `FromRequest`
-#[async_trait]
 impl<S, B, T> FromRequest<S, B> for Timing<T>
 where
     B: Send + 'static,

@@ -7,7 +7,7 @@
 //! use axum::{
 //!     body::Bytes,
 //!     Router,
-//!     async_trait,
+//!
 //!     routing::get,
 //!     extract::FromRequestParts,
 //! };
@@ -15,28 +15,26 @@
 //! // extractors for checking permissions
 //! struct AdminPermissions {}
 //!
-//! #[async_trait]
 //! impl<S> FromRequestParts<S> for AdminPermissions
 //! where
 //!     S: Send + Sync,
 //! {
 //!     // check for admin permissions...
 //!     # type Rejection = ();
-//!     # async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+//!     # fn from_request_parts<'a>(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
 //!     #     todo!()
 //!     # }
 //! }
 //!
 //! struct User {}
 //!
-//! #[async_trait]
 //! impl<S> FromRequestParts<S> for User
 //! where
 //!     S: Send + Sync,
 //! {
 //!     // check for a logged in user...
 //!     # type Rejection = ();
-//!     # async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+//!     # fn from_request_parts<'a>(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
 //!     #     todo!()
 //!     # }
 //! }
@@ -94,11 +92,11 @@
 //! [`IntoResponse::into_response`]: https://docs.rs/axum/0.5/axum/response/index.html#returning-different-response-types
 
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     response::{IntoResponse, Response},
 };
 use http::request::Parts;
+use std::future::Future;
 
 /// Combines two extractors or responses into a single type.
 ///
@@ -225,7 +223,6 @@ macro_rules! impl_traits_for_either {
         [$($ident:ident),* $(,)?],
         $last:ident $(,)?
     ) => {
-        #[async_trait]
         impl<S, $($ident),*, $last> FromRequestParts<S> for $either<$($ident),*, $last>
         where
             $($ident: FromRequestParts<S>),*,
@@ -234,14 +231,19 @@ macro_rules! impl_traits_for_either {
         {
             type Rejection = $last::Rejection;
 
-            async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-                $(
-                    if let Ok(value) = FromRequestParts::from_request_parts(parts, state).await {
-                        return Ok(Self::$ident(value));
-                    }
-                )*
+            fn from_request_parts<'a>(
+                parts: &'a mut Parts,
+                state: &'a S,
+            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+                async move {
+                    $(
+                        if let Ok(value) = $ident::from_request_parts(parts, state).await {
+                            return Ok(Self::$ident(value));
+                        }
+                    )*
 
-                FromRequestParts::from_request_parts(parts, state).await.map(Self::$last)
+                    $last::from_request_parts(parts, state).await.map(Self::$last)
+                }
             }
         }
 

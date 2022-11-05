@@ -133,7 +133,6 @@ fn expand_named_fields(
     let map_err_rejection = map_err_rejection(&rejection);
 
     let from_request_impl = quote! {
-        #[::axum::async_trait]
         #[automatically_derived]
         impl<S> ::axum::extract::FromRequestParts<S> for #ident
         where
@@ -141,7 +140,7 @@ fn expand_named_fields(
         {
             type Rejection = #rejection_assoc_type;
 
-            async fn from_request_parts(
+            fn from_request_parts<'a>(
                 parts: &mut ::axum::http::request::Parts,
                 state: &S,
             ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -238,7 +237,6 @@ fn expand_unnamed_fields(
     let map_err_rejection = map_err_rejection(&rejection);
 
     let from_request_impl = quote! {
-        #[::axum::async_trait]
         #[automatically_derived]
         impl<S> ::axum::extract::FromRequestParts<S> for #ident
         where
@@ -246,7 +244,7 @@ fn expand_unnamed_fields(
         {
             type Rejection = #rejection_assoc_type;
 
-            async fn from_request_parts(
+            fn from_request_parts<'a>(
                 parts: &mut ::axum::http::request::Parts,
                 state: &S,
             ) -> ::std::result::Result<Self, Self::Rejection> {
@@ -322,7 +320,6 @@ fn expand_unit_fields(
     };
 
     let from_request_impl = quote! {
-        #[::axum::async_trait]
         #[automatically_derived]
         impl<S> ::axum::extract::FromRequestParts<S> for #ident
         where
@@ -330,7 +327,7 @@ fn expand_unit_fields(
         {
             type Rejection = #rejection_assoc_type;
 
-            async fn from_request_parts(
+            fn from_request_parts<'a>(
                 parts: &mut ::axum::http::request::Parts,
                 _state: &S,
             ) -> ::std::result::Result<Self, Self::Rejection> {

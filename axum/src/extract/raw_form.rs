@@ -1,7 +1,7 @@
-use async_trait::async_trait;
 use axum_core::extract::FromRequest;
 use bytes::{Bytes, BytesMut};
 use http::{Method, Request};
+use std::future::Future;
 
 use super::{
     has_content_type,
@@ -34,7 +34,6 @@ use crate::{body::HttpBody, BoxError};
 #[derive(Debug)]
 pub struct RawForm(pub Bytes);
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for RawForm
 where
     B: HttpBody + Send + 'static,
@@ -44,21 +43,26 @@ where
 {
     type Rejection = RawFormRejection;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-        if req.method() == Method::GET {
-            let mut bytes = BytesMut::new();
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            if req.method() == Method::GET {
+                let mut bytes = BytesMut::new();
 
-            if let Some(query) = req.uri().query() {
-                bytes.extend(query.as_bytes());
+                if let Some(query) = req.uri().query() {
+                    bytes.extend(query.as_bytes());
+                }
+
+                Ok(Self(bytes.freeze()))
+            } else {
+                if !has_content_type(req.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
+                    return Err(InvalidFormContentType.into());
+                }
+
+                Ok(Self(Bytes::from_request(req, state).await?))
             }
-
-            Ok(Self(bytes.freeze()))
-        } else {
-            if !has_content_type(req.headers(), &mime::APPLICATION_WWW_FORM_URLENCODED) {
-                return Err(InvalidFormContentType.into());
-            }
-
-            Ok(Self(Bytes::from_request(req, state).await?))
         }
     }
 }

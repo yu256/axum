@@ -1,9 +1,9 @@
-use axum::async_trait;
 use axum::extract::{FromRequest, FromRequestParts};
 use axum::response::IntoResponse;
 use http::request::Parts;
 use http::Request;
 use std::fmt::Debug;
+use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -108,7 +108,6 @@ impl<E, R> DerefMut for WithRejection<E, R> {
     }
 }
 
-#[async_trait]
 impl<B, E, R, S> FromRequest<S, B> for WithRejection<E, R>
 where
     B: Send + 'static,
@@ -118,13 +117,17 @@ where
 {
     type Rejection = R;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-        let extractor = E::from_request(req, state).await?;
-        Ok(WithRejection(extractor, PhantomData))
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            let extractor = E::from_request(req, state).await?;
+            Ok(WithRejection(extractor, PhantomData))
+        }
     }
 }
 
-#[async_trait]
 impl<E, R, S> FromRequestParts<S> for WithRejection<E, R>
 where
     S: Send + Sync,
@@ -133,9 +136,14 @@ where
 {
     type Rejection = R;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let extractor = E::from_request_parts(parts, state).await?;
-        Ok(WithRejection(extractor, PhantomData))
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move {
+            let extractor = E::from_request_parts(parts, state).await?;
+            Ok(WithRejection(extractor, PhantomData))
+        }
     }
 }
 
@@ -153,18 +161,17 @@ mod tests {
         struct TestExtractor;
         struct TestRejection;
 
-        #[async_trait]
         impl<S> FromRequestParts<S> for TestExtractor
         where
             S: Send + Sync,
         {
             type Rejection = ();
 
-            async fn from_request_parts(
-                _parts: &mut Parts,
-                _state: &S,
-            ) -> Result<Self, Self::Rejection> {
-                Err(())
+            fn from_request_parts<'a>(
+                _parts: &'a mut Parts,
+                _state: &'a S,
+            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+                async move { Err(()) }
             }
         }
 
