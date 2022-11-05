@@ -5,9 +5,8 @@
 //! [`axum::extract`]: https://docs.rs/axum/latest/axum/extract/index.html
 
 use crate::response::IntoResponse;
-use async_trait::async_trait;
 use http::{request::Parts, Request};
-use std::convert::Infallible;
+use std::{convert::Infallible, future::Future};
 
 pub mod rejection;
 
@@ -38,14 +37,16 @@ mod private {
 /// See [`axum::extract`] for more general docs about extraxtors.
 ///
 /// [`axum::extract`]: https://docs.rs/axum/0.6.0-rc.2/axum/extract/index.html
-#[async_trait]
 pub trait FromRequestParts<S>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection>;
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a;
 }
 
 /// Types that can be created from requests.
@@ -74,23 +75,21 @@ pub trait FromRequestParts<S>: Sized {
 ///
 /// ```rust
 /// use axum::{
-///     async_trait,
+///
 ///     extract::FromRequest,
 ///     http::Request,
 /// };
 ///
 /// struct MyExtractor;
 ///
-/// #[async_trait]
 /// impl<S, B> FromRequest<S, B> for MyExtractor
 /// where
-///     // these bounds are required by `async_trait`
 ///     B: Send + 'static,
 ///     S: Send + Sync,
 /// {
 ///     type Rejection = http::StatusCode;
 ///
-///     async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+///     fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
 ///         // ...
 ///         # unimplemented!()
 ///     }
@@ -101,17 +100,18 @@ pub trait FromRequestParts<S>: Sized {
 ///
 /// [`http::Request<B>`]: http::Request
 /// [`axum::extract`]: https://docs.rs/axum/0.6.0-rc.2/axum/extract/index.html
-#[async_trait]
 pub trait FromRequest<S, B, M = private::ViaRequest>: Sized {
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection>;
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_;
 }
 
-#[async_trait]
 impl<S, B, T> FromRequest<S, B, private::ViaParts> for T
 where
     B: Send + 'static,
@@ -120,13 +120,17 @@ where
 {
     type Rejection = <Self as FromRequestParts<S>>::Rejection;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-        let (mut parts, _) = req.into_parts();
-        Self::from_request_parts(&mut parts, state).await
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move {
+            let (mut parts, _) = req.into_parts();
+            Self::from_request_parts(&mut parts, state).await
+        }
     }
 }
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Option<T>
 where
     T: FromRequestParts<S>,
@@ -134,15 +138,14 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> Result<Option<T>, Self::Rejection> {
-        Ok(T::from_request_parts(parts, state).await.ok())
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Option<T>, Self::Rejection>> + Send + 'a {
+        async move { Ok(T::from_request_parts(parts, state).await.ok()) }
     }
 }
 
-#[async_trait]
 impl<S, T, B> FromRequest<S, B> for Option<T>
 where
     T: FromRequest<S, B>,
@@ -151,12 +154,14 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Option<T>, Self::Rejection> {
-        Ok(T::from_request(req, state).await.ok())
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Option<T>, Self::Rejection>> + Send + '_ {
+        async move { Ok(T::from_request(req, state).await.ok()) }
     }
 }
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Result<T, T::Rejection>
 where
     T: FromRequestParts<S>,
@@ -164,12 +169,14 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        Ok(T::from_request_parts(parts, state).await)
+    fn from_request_parts<'a>(
+        parts: &'a mut Parts,
+        state: &'a S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        async move { Ok(T::from_request_parts(parts, state).await) }
     }
 }
 
-#[async_trait]
 impl<S, T, B> FromRequest<S, B> for Result<T, T::Rejection>
 where
     T: FromRequest<S, B>,
@@ -178,7 +185,10 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-        Ok(T::from_request(req, state).await)
+    fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        async move { Ok(T::from_request(req, state).await) }
     }
 }

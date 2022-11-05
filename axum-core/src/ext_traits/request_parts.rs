@@ -1,6 +1,6 @@
 use crate::extract::FromRequestParts;
-use futures_util::future::BoxFuture;
 use http::request::Parts;
+use std::future::Future;
 
 mod sealed {
     pub trait Sealed {}
@@ -12,9 +12,9 @@ pub trait RequestPartsExt: sealed::Sealed + Sized {
     /// Apply an extractor to this `Parts`.
     ///
     /// This is just a convenience for `E::from_request_parts(parts, &())`.
-    fn extract<E>(&mut self) -> BoxFuture<'_, Result<E, E::Rejection>>
+    fn extract<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
     where
-        E: FromRequestParts<()> + 'static;
+        E: FromRequestParts<()>;
 
     /// Apply an extractor that requires some state to this `Parts`.
     ///
@@ -22,16 +22,15 @@ pub trait RequestPartsExt: sealed::Sealed + Sized {
     fn extract_with_state<'a, E, S>(
         &'a mut self,
         state: &'a S,
-    ) -> BoxFuture<'a, Result<E, E::Rejection>>
+    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
     where
-        E: FromRequestParts<S> + 'static,
-        S: Send + Sync;
+        E: FromRequestParts<S>;
 }
 
 impl RequestPartsExt for Parts {
-    fn extract<E>(&mut self) -> BoxFuture<'_, Result<E, E::Rejection>>
+    fn extract<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
     where
-        E: FromRequestParts<()> + 'static,
+        E: FromRequestParts<()>,
     {
         self.extract_with_state(&())
     }
@@ -39,10 +38,9 @@ impl RequestPartsExt for Parts {
     fn extract_with_state<'a, E, S>(
         &'a mut self,
         state: &'a S,
-    ) -> BoxFuture<'a, Result<E, E::Rejection>>
+    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
     where
-        E: FromRequestParts<S> + 'static,
-        S: Send + Sync,
+        E: FromRequestParts<S>,
     {
         E::from_request_parts(self, state)
     }
@@ -50,14 +48,13 @@ impl RequestPartsExt for Parts {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::Infallible;
+    use std::{convert::Infallible, future::Future};
 
     use super::*;
     use crate::{
         ext_traits::tests::{RequiresState, State},
         extract::FromRef,
     };
-    use async_trait::async_trait;
     use http::{Method, Request};
 
     #[tokio::test]
@@ -90,7 +87,6 @@ mod tests {
         from_state: String,
     }
 
-    #[async_trait]
     impl<S> FromRequestParts<S> for WorksForCustomExtractor
     where
         S: Send + Sync,
@@ -98,11 +94,16 @@ mod tests {
     {
         type Rejection = Infallible;
 
-        async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-            let RequiresState(from_state) = parts.extract_with_state(state).await?;
-            let method = parts.extract().await?;
+        fn from_request_parts<'a>(
+            parts: &'a mut Parts,
+            state: &'a S,
+        ) -> impl Future<Output = Result<Self, Self::Rejection>> + 'a {
+            async move {
+                let RequiresState(from_state) = parts.extract_with_state(state).await?;
+                let method = parts.extract().await?;
 
-            Ok(Self { method, from_state })
+                Ok(Self { method, from_state })
+            }
         }
     }
 }

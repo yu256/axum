@@ -1,7 +1,7 @@
 use crate::extract::{DefaultBodyLimitKind, FromRequest, FromRequestParts};
-use futures_util::future::BoxFuture;
 use http::Request;
 use http_body::Limited;
+use std::future::Future;
 
 mod sealed {
     pub trait Sealed<B> {}
@@ -16,10 +16,9 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     ///
     /// Note this consumes the request. Use [`RequestExt::extract_parts`] if you're not extracting
     /// the body and don't want to consume the request.
-    fn extract<E, M>(self) -> BoxFuture<'static, Result<E, E::Rejection>>
+    fn extract<E, M>(self) -> impl Future<Output = Result<E, E::Rejection>>
     where
-        E: FromRequest<(), B, M> + 'static,
-        M: 'static;
+        E: FromRequest<(), B, M>;
 
     /// Apply an extractor that requires some state to this `Request`.
     ///
@@ -27,17 +26,19 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     ///
     /// Note this consumes the request. Use [`RequestExt::extract_parts_with_state`] if you're not
     /// extracting the body and don't want to consume the request.
-    fn extract_with_state<E, S, M>(self, state: &S) -> BoxFuture<'_, Result<E, E::Rejection>>
+    fn extract_with_state<E, S, M>(
+        self,
+        state: &S,
+    ) -> impl Future<Output = Result<E, E::Rejection>> + '_
     where
-        E: FromRequest<S, B, M> + 'static,
-        S: Send + Sync;
+        E: FromRequest<S, B, M>;
 
     /// Apply a parts extractor to this `Request`.
     ///
     /// This is just a convenience for `E::from_request_parts(parts, state)`.
-    fn extract_parts<E>(&mut self) -> BoxFuture<'_, Result<E, E::Rejection>>
+    fn extract_parts<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
     where
-        E: FromRequestParts<()> + 'static;
+        E: FromRequestParts<()>;
 
     /// Apply a parts extractor that requires some state to this `Request`.
     ///
@@ -45,10 +46,9 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     fn extract_parts_with_state<'a, E, S>(
         &'a mut self,
         state: &'a S,
-    ) -> BoxFuture<'a, Result<E, E::Rejection>>
+    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
     where
-        E: FromRequestParts<S> + 'static,
-        S: Send + Sync;
+        E: FromRequestParts<S>;
 
     /// Apply the [default body limit](crate::extract::DefaultBodyLimit).
     ///
@@ -63,27 +63,28 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
 
 impl<B> RequestExt<B> for Request<B>
 where
-    B: Send + 'static,
+    B: Send,
 {
-    fn extract<E, M>(self) -> BoxFuture<'static, Result<E, E::Rejection>>
+    fn extract<E, M>(self) -> impl Future<Output = Result<E, E::Rejection>>
     where
-        E: FromRequest<(), B, M> + 'static,
-        M: 'static,
+        E: FromRequest<(), B, M>,
     {
         self.extract_with_state(&())
     }
 
-    fn extract_with_state<E, S, M>(self, state: &S) -> BoxFuture<'_, Result<E, E::Rejection>>
+    fn extract_with_state<E, S, M>(
+        self,
+        state: &S,
+    ) -> impl Future<Output = Result<E, E::Rejection>> + '_
     where
-        E: FromRequest<S, B, M> + 'static,
-        S: Send + Sync,
+        E: FromRequest<S, B, M>,
     {
         E::from_request(self, state)
     }
 
-    fn extract_parts<E>(&mut self) -> BoxFuture<'_, Result<E, E::Rejection>>
+    fn extract_parts<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
     where
-        E: FromRequestParts<()> + 'static,
+        E: FromRequestParts<()>,
     {
         self.extract_parts_with_state(&())
     }
@@ -91,10 +92,9 @@ where
     fn extract_parts_with_state<'a, E, S>(
         &'a mut self,
         state: &'a S,
-    ) -> BoxFuture<'a, Result<E, E::Rejection>>
+    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
     where
-        E: FromRequestParts<S> + 'static,
-        S: Send + Sync,
+        E: FromRequestParts<S>,
     {
         let mut req = Request::new(());
         *req.version_mut() = self.version();
@@ -104,7 +104,7 @@ where
         *req.extensions_mut() = std::mem::take(self.extensions_mut());
         let (mut parts, _) = req.into_parts();
 
-        Box::pin(async move {
+        async move {
             let result = E::from_request_parts(&mut parts, state).await;
 
             *self.version_mut() = parts.version;
@@ -114,7 +114,7 @@ where
             *self.extensions_mut() = std::mem::take(&mut parts.extensions);
 
             result
-        })
+        }
     }
 
     fn with_limited_body(self) -> Result<Request<Limited<B>>, Request<B>> {
@@ -145,7 +145,6 @@ mod tests {
         ext_traits::tests::{RequiresState, State},
         extract::FromRef,
     };
-    use async_trait::async_trait;
     use http::Method;
     use hyper::Body;
 
@@ -209,7 +208,6 @@ mod tests {
         body: String,
     }
 
-    #[async_trait]
     impl<S, B> FromRequest<S, B> for WorksForCustomExtractor
     where
         S: Send + Sync,
@@ -218,16 +216,21 @@ mod tests {
     {
         type Rejection = <String as FromRequest<(), B>>::Rejection;
 
-        async fn from_request(mut req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-            let RequiresState(from_state) = req.extract_parts_with_state(state).await.unwrap();
-            let method = req.extract_parts().await.unwrap();
-            let body = req.extract().await?;
+        fn from_request(
+            mut req: Request<B>,
+            state: &S,
+        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+            async move {
+                let RequiresState(from_state) = req.extract_parts_with_state(state).await.unwrap();
+                let method = req.extract_parts().await.unwrap();
+                let body = req.extract().await?;
 
-            Ok(Self {
-                method,
-                from_state,
-                body,
-            })
+                Ok(Self {
+                    method,
+                    from_state,
+                    body,
+                })
+            }
         }
     }
 }

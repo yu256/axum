@@ -1,18 +1,16 @@
 use super::{FromRequest, FromRequestParts};
 use crate::response::{IntoResponse, Response};
-use async_trait::async_trait;
 use http::request::{Parts, Request};
-use std::convert::Infallible;
+use std::{convert::Infallible, future::Future};
 
-#[async_trait]
-impl<S> FromRequestParts<S> for ()
-where
-    S: Send + Sync,
-{
+impl<S> FromRequestParts<S> for () {
     type Rejection = Infallible;
 
-    async fn from_request_parts(_: &mut Parts, _: &S) -> Result<(), Self::Rejection> {
-        Ok(())
+    fn from_request_parts<'a>(
+        _: &'a mut Parts,
+        _: &'a S,
+    ) -> impl Future<Output = Result<(), Self::Rejection>> + Send + 'a {
+        async move { Ok(()) }
     }
 }
 
@@ -20,7 +18,6 @@ macro_rules! impl_from_request {
     (
         [$($ty:ident),*], $last:ident
     ) => {
-        #[async_trait]
         #[allow(non_snake_case, unused_mut, unused_variables)]
         impl<S, $($ty,)* $last> FromRequestParts<S> for ($($ty,)* $last,)
         where
@@ -30,23 +27,27 @@ macro_rules! impl_from_request {
         {
             type Rejection = Response;
 
-            async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-                $(
-                    let $ty = $ty::from_request_parts(parts, state)
+            fn from_request_parts<'a>(
+                parts: &'a mut Parts,
+                state: &'a S,
+            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+                async move {
+                    $(
+                        let $ty = $ty::from_request_parts(parts, state)
+                            .await
+                            .map_err(|err| err.into_response())?;
+                    )*
+                    let $last = $last::from_request_parts(parts, state)
                         .await
                         .map_err(|err| err.into_response())?;
-                )*
-                let $last = $last::from_request_parts(parts, state)
-                    .await
-                    .map_err(|err| err.into_response())?;
 
-                Ok(($($ty,)* $last,))
+                    Ok(($($ty,)* $last,))
+                }
             }
         }
 
         // This impl must not be generic over M, otherwise it would conflict with the blanket
         // implementation of `FromRequest<S, B, Mut>` for `T: FromRequestParts<S>`.
-        #[async_trait]
         #[allow(non_snake_case, unused_mut, unused_variables)]
         impl<S, B, $($ty,)* $last> FromRequest<S, B> for ($($ty,)* $last,)
         where
@@ -57,18 +58,23 @@ macro_rules! impl_from_request {
         {
             type Rejection = Response;
 
-            async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
-                let (mut parts, body) = req.into_parts();
+            fn from_request<'a>(
+                req: Request<B>,
+                state: &'a S,
+            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+                async move {
+                    let (mut parts, body) = req.into_parts();
 
-                $(
-                    let $ty = $ty::from_request_parts(&mut parts, state).await.map_err(|err| err.into_response())?;
-                )*
+                    $(
+                        let $ty = $ty::from_request_parts(&mut parts, state).await.map_err(|err| err.into_response())?;
+                    )*
 
-                let req = Request::from_parts(parts, body);
+                    let req = Request::from_parts(parts, body);
 
-                let $last = $last::from_request(req, state).await.map_err(|err| err.into_response())?;
+                    let $last = $last::from_request(req, state).await.map_err(|err| err.into_response())?;
 
-                Ok(($($ty,)* $last,))
+                    Ok(($($ty,)* $last,))
+                }
             }
         }
     };
