@@ -56,26 +56,35 @@ pub struct Multipart {
 
 impl<S, B> FromRequest<S, B> for Multipart
 where
-    B: HttpBody + Send + 'static,
+    B: HttpBody + Send + Unpin + 'static,
     B::Data: Into<Bytes>,
     B::Error: Into<BoxError>,
-    S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = MultipartRejection;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move {
             let boundary = parse_boundary(req.headers()).ok_or(InvalidBoundary)?;
-            let stream_result = match req.with_limited_body() {
-                Ok(limited) => BodyStream::from_request(limited, state).await,
-                Err(unlimited) => BodyStream::from_request(unlimited, state).await,
+            let inner = match req.with_limited_body() {
+                Ok(limited) => multer::Multipart::new(
+                    BodyStream::from_request(limited, state)
+                        .await
+                        .unwrap_or_else(|err| match err {}),
+                    boundary,
+                ),
+                Err(unlimited) => multer::Multipart::new(
+                    BodyStream::from_request(unlimited, state)
+                        .await
+                        .unwrap_or_else(|err| match err {}),
+                    boundary,
+                ),
             };
-            let stream = stream_result.unwrap_or_else(|err| match err {});
-            let multipart = multer::Multipart::new(stream, boundary);
-            Ok(Self { inner: multipart })
+
+            Ok(Self { inner })
         }
     }
 }

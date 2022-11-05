@@ -23,16 +23,13 @@ const X_FORWARDED_HOST_HEADER_KEY: &str = "X-Forwarded-Host";
 #[derive(Debug, Clone)]
 pub struct Host(pub String);
 
-impl<S> FromRequestParts<S> for Host
-where
-    S: Send + Sync,
-{
+impl<S> FromRequestParts<S> for Host {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = HostRejection;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
         async move {
             if let Some(host) = parse_forwarded(&parts.headers) {
                 return Ok(Host(host.to_owned()));

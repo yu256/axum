@@ -63,16 +63,13 @@ impl MatchedPath {
     }
 }
 
-impl<S> FromRequestParts<S> for MatchedPath
-where
-    S: Send + Sync,
-{
+impl<S> FromRequestParts<S> for MatchedPath {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = MatchedPathRejection;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
         async move {
             let matched_path = parts
                 .extensions

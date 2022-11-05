@@ -16,8 +16,9 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     ///
     /// Note this consumes the request. Use [`RequestExt::extract_parts`] if you're not extracting
     /// the body and don't want to consume the request.
-    fn extract<E, M>(self) -> impl Future<Output = Result<E, E::Rejection>>
+    fn extract<'a, E, M>(self) -> E::Future<'a>
     where
+        B: 'a,
         E: FromRequest<(), B, M>;
 
     /// Apply an extractor that requires some state to this `Request`.
@@ -26,17 +27,25 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     ///
     /// Note this consumes the request. Use [`RequestExt::extract_parts_with_state`] if you're not
     /// extracting the body and don't want to consume the request.
-    fn extract_with_state<E, S, M>(
-        self,
-        state: &S,
-    ) -> impl Future<Output = Result<E, E::Rejection>> + '_
+    fn extract_with_state<'a, E, S, M>(self, state: &'a S) -> E::Future<'a>
     where
+        B: 'a,
         E: FromRequest<S, B, M>;
+
+    #[doc(hidden)]
+    #[rustfmt::skip]
+    type ExtractPartsFuture<'a, E, S>:
+        Future<Output = Result<E, <E as FromRequestParts<S>>::Rejection>> + 'a
+    where
+        Self: 'a,
+        B: 'a,
+        E: FromRequestParts<S>,
+        S: 'a;
 
     /// Apply a parts extractor to this `Request`.
     ///
     /// This is just a convenience for `E::from_request_parts(parts, state)`.
-    fn extract_parts<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
+    fn extract_parts<E>(&mut self) -> Self::ExtractPartsFuture<'_, E, ()>
     where
         E: FromRequestParts<()>;
 
@@ -46,7 +55,7 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     fn extract_parts_with_state<'a, E, S>(
         &'a mut self,
         state: &'a S,
-    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
+    ) -> Self::ExtractPartsFuture<'a, E, S>
     where
         E: FromRequestParts<S>;
 
@@ -61,38 +70,42 @@ pub trait RequestExt<B>: sealed::Sealed<B> + Sized {
     fn into_limited_body(self) -> Result<Limited<B>, B>;
 }
 
-impl<B> RequestExt<B> for Request<B>
-where
-    B: Send,
-{
-    fn extract<E, M>(self) -> impl Future<Output = Result<E, E::Rejection>>
+impl<B> RequestExt<B> for Request<B> {
+    fn extract<'a, E, M>(self) -> E::Future<'a>
     where
+        B: 'a,
         E: FromRequest<(), B, M>,
     {
-        self.extract_with_state(&())
+        self.extract_with_state::<E, _, M>(&())
     }
 
-    fn extract_with_state<E, S, M>(
-        self,
-        state: &S,
-    ) -> impl Future<Output = Result<E, E::Rejection>> + '_
+    fn extract_with_state<'a, E, S, M>(self, state: &'a S) -> E::Future<'a>
     where
+        B: 'a,
         E: FromRequest<S, B, M>,
     {
         E::from_request(self, state)
     }
 
-    fn extract_parts<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
+    type ExtractPartsFuture<'a, E, S> =
+        impl Future<Output = Result<E, <E as FromRequestParts<S>>::Rejection>> + 'a
+    where
+        Self: 'a,
+        B: 'a,
+        E: FromRequestParts<S>,
+        S: 'a;
+
+    fn extract_parts<E>(&mut self) -> Self::ExtractPartsFuture<'_, E, ()>
     where
         E: FromRequestParts<()>,
     {
-        self.extract_parts_with_state(&())
+        self.extract_parts_with_state::<E, _>(&())
     }
 
     fn extract_parts_with_state<'a, E, S>(
         &'a mut self,
         state: &'a S,
-    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
+    ) -> Self::ExtractPartsFuture<'a, E, S>
     where
         E: FromRequestParts<S>,
     {
@@ -216,10 +229,7 @@ mod tests {
     {
         type Rejection = <String as FromRequest<(), B>>::Rejection;
 
-        fn from_request(
-            mut req: Request<B>,
-            state: &S,
-        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+        fn from_request(mut req: Request<B>, state: &S) -> Self::Future<'_> {
             async move {
                 let RequiresState(from_state) = req.extract_parts_with_state(state).await.unwrap();
                 let method = req.extract_parts().await.unwrap();

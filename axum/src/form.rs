@@ -62,20 +62,19 @@ pub struct Form<T>(pub T);
 
 impl<T, S, B> FromRequest<S, B> for Form<T>
 where
-    T: DeserializeOwned + 'static,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
+    T: DeserializeOwned,
+    B: HttpBody,
     B::Error: Into<BoxError>,
-    S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = FormRejection;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, _state: &S) -> Self::Future<'_> {
         async move {
-            match req.extract().await {
+            match req.extract::<RawForm, _>().await {
                 Ok(RawForm(bytes)) => {
                     let value = serde_urlencoded::from_bytes(&bytes)
                         .map_err(FailedToDeserializeQueryString::__private_new)?;

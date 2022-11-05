@@ -36,17 +36,16 @@ pub struct RawForm(pub Bytes);
 
 impl<S, B> FromRequest<S, B> for RawForm
 where
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
+    B: HttpBody,
     B::Error: Into<BoxError>,
-    S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = RawFormRejection;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move {
             if req.method() == Method::GET {
                 let mut bytes = BytesMut::new();

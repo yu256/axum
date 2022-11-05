@@ -13,6 +13,7 @@ where
     pub(crate) fn new<H, T>(handler: H) -> Self
     where
         H: Handler<T, S, B>,
+        H::Future: Send,
         T: 'static,
     {
         Self(Box::new(MakeErasedHandler {

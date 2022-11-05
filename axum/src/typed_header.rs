@@ -55,12 +55,12 @@ impl<T, S> FromRequestParts<S> for TypedHeader<T>
 where
     T: headers::Header,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = TypedHeaderRejection;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
         async move {
             match parts.headers.typed_try_get::<T>() {
                 Ok(Some(value)) => Ok(Self(value)),

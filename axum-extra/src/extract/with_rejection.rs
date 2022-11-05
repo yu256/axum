@@ -117,10 +117,7 @@ where
 {
     type Rejection = R;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move {
             let extractor = E::from_request(req, state).await?;
             Ok(WithRejection(extractor, PhantomData))
@@ -136,10 +133,7 @@ where
 {
     type Rejection = R;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
         async move {
             let extractor = E::from_request_parts(parts, state).await?;
             Ok(WithRejection(extractor, PhantomData))
@@ -167,10 +161,7 @@ mod tests {
         {
             type Rejection = ();
 
-            fn from_request_parts<'a>(
-                _parts: &'a mut Parts,
-                _state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+            fn from_request_parts<'a>(_parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
                 async move { Err(()) }
             }
         }

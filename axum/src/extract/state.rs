@@ -226,14 +226,13 @@ pub struct State<S>(pub S);
 impl<OuterState, InnerState> FromRequestParts<OuterState> for State<InnerState>
 where
     InnerState: FromRef<OuterState> + 'static,
-    OuterState: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        OuterState: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        _parts: &'a mut Parts,
-        state: &'a OuterState,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(_parts: &'a mut Parts, state: &'a OuterState) -> Self::Future<'a> {
         async move {
             let inner_state = InnerState::from_ref(state);
             Ok(Self(inner_state))

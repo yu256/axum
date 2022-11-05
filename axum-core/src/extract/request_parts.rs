@@ -4,49 +4,47 @@ use bytes::Bytes;
 use http::{request::Parts, HeaderMap, Method, Request, Uri, Version};
 use std::{convert::Infallible, future::Future};
 
-impl<S, B> FromRequest<S, B> for Request<B>
-where
-    B: Send + 'static,
-{
+impl<S, B> FromRequest<S, B> for Request<B> {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+    fn from_request(req: Request<B>, _state: &S) -> Self::Future<'_> {
         async move { Ok(req) }
     }
 }
 
 impl<S> FromRequestParts<S> for Method {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _: &'a S) -> Self::Future<'a> {
         async move { Ok(parts.method.clone()) }
     }
 }
 
 impl<S> FromRequestParts<S> for Uri {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _: &'a S) -> Self::Future<'a> {
         async move { Ok(parts.uri.clone()) }
     }
 }
 
 impl<S> FromRequestParts<S> for Version {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _: &'a S) -> Self::Future<'a> {
         async move { Ok(parts.version) }
     }
 }
@@ -57,28 +55,28 @@ impl<S> FromRequestParts<S> for Version {
 ///
 /// [`TypedHeader`]: https://docs.rs/axum/latest/axum/extract/struct.TypedHeader.html
 impl<S> FromRequestParts<S> for HeaderMap {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _: &'a S) -> Self::Future<'a> {
         async move { Ok(parts.headers.clone()) }
     }
 }
 
 impl<S, B> FromRequest<S, B> for Bytes
 where
-    B: http_body::Body + Send + 'static,
-    B::Data: Send,
+    B: http_body::Body,
     B::Error: Into<BoxError>,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = BytesRejection;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, _state: &S) -> Self::Future<'_> {
         async move {
             let bytes = match req.into_limited_body() {
                 Ok(limited_body) => crate::body::to_bytes(limited_body)
@@ -100,12 +98,12 @@ where
     B::Data: Send,
     B::Error: Into<BoxError>,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = StringRejection;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, _state: &S) -> Self::Future<'_> {
         async move {
             let bytes = Bytes::from_request(req, &())
                 .await
@@ -128,12 +126,12 @@ impl<S, B> FromRequest<S, B> for Parts
 where
     B: Send + 'static,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, _state: &S) -> Self::Future<'_> {
         async move { Ok(req.into_parts().0) }
     }
 }

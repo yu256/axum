@@ -125,7 +125,7 @@ where
 {
     type Response = Response;
     type Error = Infallible;
-    type Future = future::HandleErrorFuture;
+    type Future = impl Future<Output = Result<Self::Response, Infallible>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -137,14 +137,12 @@ where
         let clone = self.inner.clone();
         let inner = std::mem::replace(&mut self.inner, clone);
 
-        let future = Box::pin(async move {
+        async move {
             match inner.oneshot(req).await {
                 Ok(res) => Ok(res.into_response()),
                 Err(err) => Ok(f(err).await.into_response()),
             }
-        });
-
-        future::HandleErrorFuture { future }
+        }
     }
 }
 
@@ -167,7 +165,7 @@ macro_rules! impl_service {
             type Response = Response;
             type Error = Infallible;
 
-            type Future = future::HandleErrorFuture;
+            type Future = impl Future<Output = Result<Self::Response, Infallible>>;
 
             fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
                 Poll::Ready(Ok(()))
@@ -180,7 +178,7 @@ macro_rules! impl_service {
                 let clone = self.inner.clone();
                 let inner = std::mem::replace(&mut self.inner, clone);
 
-                let future = Box::pin(async move {
+                async move {
                     let (mut parts, body) = req.into_parts();
 
                     $(
@@ -196,9 +194,7 @@ macro_rules! impl_service {
                         Ok(res) => Ok(res.into_response()),
                         Err(err) => Ok(f($($ty),*, err).await.into_response()),
                     }
-                });
-
-                future::HandleErrorFuture { future }
+                }
             }
         }
     }
@@ -220,38 +216,6 @@ impl_service!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_service!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_service!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
 impl_service!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
-
-pub mod future {
-    //! Future types.
-
-    use crate::response::Response;
-    use pin_project_lite::pin_project;
-    use std::{
-        convert::Infallible,
-        future::Future,
-        pin::Pin,
-        task::{Context, Poll},
-    };
-
-    pin_project! {
-        /// Response future for [`HandleError`].
-        pub struct HandleErrorFuture {
-            #[pin]
-            pub(super) future: Pin<Box<dyn Future<Output = Result<Response, Infallible>>
-                + Send
-                + 'static
-            >>,
-        }
-    }
-
-    impl Future for HandleErrorFuture {
-        type Output = Result<Response, Infallible>;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            self.project().future.poll(cx)
-        }
-    }
-}
 
 #[test]
 fn traits() {

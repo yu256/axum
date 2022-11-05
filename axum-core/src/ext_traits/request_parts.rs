@@ -1,6 +1,5 @@
 use crate::extract::FromRequestParts;
 use http::request::Parts;
-use std::future::Future;
 
 mod sealed {
     pub trait Sealed {}
@@ -12,33 +11,27 @@ pub trait RequestPartsExt: sealed::Sealed + Sized {
     /// Apply an extractor to this `Parts`.
     ///
     /// This is just a convenience for `E::from_request_parts(parts, &())`.
-    fn extract<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
+    fn extract<E>(&mut self) -> E::Future<'_>
     where
         E: FromRequestParts<()>;
 
     /// Apply an extractor that requires some state to this `Parts`.
     ///
     /// This is just a convenience for `E::from_request_parts(parts, state)`.
-    fn extract_with_state<'a, E, S>(
-        &'a mut self,
-        state: &'a S,
-    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
+    fn extract_with_state<'a, E, S>(&'a mut self, state: &'a S) -> E::Future<'a>
     where
         E: FromRequestParts<S>;
 }
 
 impl RequestPartsExt for Parts {
-    fn extract<E>(&mut self) -> impl Future<Output = Result<E, E::Rejection>> + '_
+    fn extract<E>(&mut self) -> E::Future<'_>
     where
         E: FromRequestParts<()>,
     {
-        self.extract_with_state(&())
+        self.extract_with_state::<E, _>(&())
     }
 
-    fn extract_with_state<'a, E, S>(
-        &'a mut self,
-        state: &'a S,
-    ) -> impl Future<Output = Result<E, E::Rejection>> + 'a
+    fn extract_with_state<'a, E, S>(&'a mut self, state: &'a S) -> E::Future<'a>
     where
         E: FromRequestParts<S>,
     {

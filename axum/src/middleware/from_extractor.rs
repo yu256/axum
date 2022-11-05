@@ -320,12 +320,12 @@ mod tests {
             S: Send + Sync,
             Secret: FromRef<S>,
         {
+            type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+            where
+                S: 'a;
             type Rejection = StatusCode;
 
-            fn from_request_parts<'a>(
-                parts: &'a mut Parts,
-                state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + 'a {
+            fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
                 async move {
                     let Secret(secret) = Secret::from_ref(state);
                     if let Some(auth) = parts
@@ -373,12 +373,12 @@ mod tests {
         where
             S: Send + Sync,
         {
+            type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+            where
+                S: 'a;
             type Rejection = std::convert::Infallible;
 
-            fn from_request_parts<'a>(
-                _parts: &'a mut Parts,
-                _state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+            fn from_request_parts<'a>(_parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
                 async move { unimplemented!() }
             }
         }

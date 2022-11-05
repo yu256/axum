@@ -85,16 +85,13 @@ use sync_wrapper::SyncWrapper;
 pub struct OriginalUri(pub Uri);
 
 #[cfg(feature = "original-uri")]
-impl<S> FromRequestParts<S> for OriginalUri
-where
-    S: Send + Sync,
-{
+impl<S> FromRequestParts<S> for OriginalUri {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
         async move {
             let uri = Extension::<Self>::from_request_parts(parts, state)
                 .await
@@ -137,11 +134,21 @@ where
 ///
 /// [`Stream`]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
 /// [`body::Body`]: crate::body::Body
-pub struct BodyStream(
-    SyncWrapper<Pin<Box<dyn HttpBody<Data = Bytes, Error = Error> + Send + 'static>>>,
-);
+pub struct BodyStream<B>(SyncWrapper<BodyStreamInner<B>>)
+where
+    B: HttpBody;
 
-impl Stream for BodyStream {
+type BodyStreamInner<B: HttpBody> = http_body::combinators::MapErr<
+    http_body::combinators::MapData<B, fn(B::Data) -> Bytes>,
+    fn(B::Error) -> Error,
+>;
+
+impl<B> Stream for BodyStream<B>
+where
+    // FIXME: Unpin not needed if pin projection is used.
+    //        Should replace the combinator stack with a manual HttpBody impl.
+    B: HttpBody + Unpin,
+{
     type Item = Result<Bytes, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -149,31 +156,34 @@ impl Stream for BodyStream {
     }
 }
 
-impl<S, B> FromRequest<S, B> for BodyStream
+impl<S, B> FromRequest<S, B> for BodyStream<B>
 where
-    B: HttpBody + Send + 'static,
+    B: HttpBody,
     B::Data: Into<Bytes>,
     B::Error: Into<BoxError>,
-    S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, _: &S) -> Self::Future<'_> {
         async move {
             let body = req
                 .into_body()
-                .map_data(Into::into)
-                .map_err(|err| Error::new(err.into()));
-            let stream = BodyStream(SyncWrapper::new(Box::pin(body)));
+                .map_data(Into::into as fn(B::Data) -> Bytes)
+                .map_err((|err| Error::new(err.into())) as fn(B::Error) -> Error);
+            let stream = BodyStream(SyncWrapper::new(body));
             Ok(stream)
         }
     }
 }
 
-impl fmt::Debug for BodyStream {
+impl<B> fmt::Debug for BodyStream<B>
+where
+    B: HttpBody,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("BodyStream").finish()
     }
@@ -181,8 +191,10 @@ impl fmt::Debug for BodyStream {
 
 #[test]
 fn body_stream_traits() {
-    crate::test_helpers::assert_send::<BodyStream>();
-    crate::test_helpers::assert_sync::<BodyStream>();
+    use http_body::Full;
+
+    crate::test_helpers::assert_send::<BodyStream<Full<Bytes>>>();
+    crate::test_helpers::assert_sync::<BodyStream<Full<Bytes>>>();
 }
 
 /// Extractor that extracts the raw request body.
@@ -216,17 +228,14 @@ fn body_stream_traits() {
 #[derive(Debug, Default, Clone)]
 pub struct RawBody<B = Body>(pub B);
 
-impl<S, B> FromRequest<S, B> for RawBody<B>
-where
-    B: Send + 'static,
-    S: Send + Sync,
-{
+impl<S, B> FromRequest<S, B> for RawBody<B> {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request(
-        req: Request<B>,
-        _state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, _state: &S) -> Self::Future<'_> {
         async move { Ok(Self(req.into_body())) }
     }
 }

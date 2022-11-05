@@ -93,10 +93,7 @@ where
 {
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
         async move { Ok(Self::from_headers(&parts.headers)) }
     }
 }

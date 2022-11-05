@@ -98,7 +98,7 @@ pub use self::service::HandlerService;
 #[doc = include_str!("../docs/debugging_handler_type_errors.md")]
 pub trait Handler<T, S, B = Body>: Clone + Send + Sized + 'static {
     /// The type of future calling this handler returns.
-    type Future: Future<Output = Response> + Send + 'static;
+    type Future: Future<Output = Response> + 'static;
 
     /// Call the handler with the given request.
     fn call(self, req: Request<B>, state: S) -> Self::Future;
@@ -185,7 +185,7 @@ macro_rules! impl_handler {
             $( $ty: FromRequestParts<S> + Send, )*
             $last: FromRequest<S, B, M> + Send,
         {
-            type Future = impl Future<Output = Response> + Send + 'static;
+            type Future = impl Future<Output = Response> + 'static;
 
             fn call(self, req: Request<B>, state: S) -> Self::Future {
                 async move {

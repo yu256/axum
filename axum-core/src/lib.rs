@@ -8,7 +8,7 @@
 //! [`axum`]: https://crates.io/crates/axum
 //! [`axum-core`]: http://crates.io/crates/axum-core
 
-#![feature(return_position_impl_trait_in_trait)]
+#![feature(type_alias_impl_trait)]
 #![warn(
     clippy::all,
     clippy::dbg_macro,
@@ -47,7 +47,6 @@
 #![deny(unreachable_pub, private_in_public)]
 #![allow(
     elided_lifetimes_in_paths,
-    incomplete_features,
     clippy::manual_async_fn,
     clippy::type_complexity
 )]

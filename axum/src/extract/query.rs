@@ -51,14 +51,13 @@ pub struct Query<T>(pub T);
 impl<T, S> FromRequestParts<S> for Query<T>
 where
     T: DeserializeOwned + 'static,
-    S: Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = QueryRejection;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        _state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
         async move {
             let query = parts.uri.query().unwrap_or_default();
             let value = serde_urlencoded::from_str(query)

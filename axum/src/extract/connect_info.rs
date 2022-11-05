@@ -129,15 +129,14 @@ pub struct ConnectInfo<T>(pub T);
 
 impl<S, T> FromRequestParts<S> for ConnectInfo<T>
 where
-    S: Send + Sync,
     T: Clone + Send + Sync + 'static,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = <Extension<Self> as FromRequestParts<S>>::Rejection;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
         async move {
             let Extension(connect_info) =
                 Extension::<Self>::from_request_parts(parts, state).await?;

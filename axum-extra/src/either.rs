@@ -234,7 +234,7 @@ macro_rules! impl_traits_for_either {
             fn from_request_parts<'a>(
                 parts: &'a mut Parts,
                 state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+            ) -> Self::Future<'a> {
                 async move {
                     $(
                         if let Ok(value) = $ident::from_request_parts(parts, state).await {

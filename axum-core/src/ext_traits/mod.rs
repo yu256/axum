@@ -21,7 +21,7 @@ mod tests {
         fn from_request_parts<'a>(
             _parts: &'a mut Parts,
             state: &'a OuterState,
-        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        ) -> Self::Future<'a> {
             async move {
                 let inner_state = InnerState::from_ref(state);
                 Ok(Self(inner_state))
@@ -39,10 +39,7 @@ mod tests {
     {
         type Rejection = Infallible;
 
-        fn from_request_parts<'a>(
-            _parts: &'a mut Parts,
-            state: &'a S,
-        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+        fn from_request_parts<'a>(_parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
             async move { Ok(Self(String::from_ref(state))) }
         }
     }

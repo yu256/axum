@@ -103,18 +103,17 @@ pub struct Json<T>(pub T);
 
 impl<T, S, B> FromRequest<S, B> for Json<T>
 where
-    T: DeserializeOwned + 'static,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
+    T: DeserializeOwned,
+    B: HttpBody,
     B::Error: Into<BoxError>,
-    S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = JsonRejection;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move {
             if json_content_type(req.headers()) {
                 let bytes = Bytes::from_request(req, state).await?;

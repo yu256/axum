@@ -75,14 +75,13 @@ pub struct Extension<T>(pub T);
 impl<T, S> FromRequestParts<S> for Extension<T>
 where
     T: Clone + Send + Sync + 'static,
-    S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = ExtensionRejection;
 
-    fn from_request_parts<'a>(
-        req: &'a mut Parts,
-        _state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + 'a {
+    fn from_request_parts<'a>(req: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
         async move {
             let value = req
             .extensions

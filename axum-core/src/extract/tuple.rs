@@ -4,12 +4,12 @@ use http::request::{Parts, Request};
 use std::{convert::Infallible, future::Future};
 
 impl<S> FromRequestParts<S> for () {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        _: &'a mut Parts,
-        _: &'a S,
-    ) -> impl Future<Output = Result<(), Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(_: &'a mut Parts, _: &'a S) -> Self::Future<'a> {
         async move { Ok(()) }
     }
 }
@@ -25,12 +25,15 @@ macro_rules! impl_from_request {
             $last: FromRequestParts<S> + Send,
             S: Send + Sync,
         {
+            type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+            where
+                S: 'a;
             type Rejection = Response;
 
             fn from_request_parts<'a>(
                 parts: &'a mut Parts,
                 state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+            ) -> Self::Future<'a> {
                 async move {
                     $(
                         let $ty = $ty::from_request_parts(parts, state)
@@ -56,12 +59,15 @@ macro_rules! impl_from_request {
             B: Send + 'static,
             S: Send + Sync,
         {
+            type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+            where
+                S: 'a;
             type Rejection = Response;
 
             fn from_request<'a>(
                 req: Request<B>,
                 state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+            ) -> Self::Future<'a> {
                 async move {
                     let (mut parts, body) = req.into_parts();
 

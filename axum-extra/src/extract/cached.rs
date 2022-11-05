@@ -91,10 +91,7 @@ where
 {
     type Rejection = T::Rejection;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
         async move {
             match Extension::<CachedEntry<T>>::from_request_parts(parts, state).await {
                 Ok(Extension(CachedEntry(value))) => Ok(Self(value)),
@@ -147,10 +144,7 @@ mod tests {
         {
             type Rejection = Infallible;
 
-            fn from_request_parts<'a>(
-                _parts: &'a mut Parts,
-                _state: &'a S,
-            ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+            fn from_request_parts<'a>(_parts: &'a mut Parts, _state: &'a S) -> Self::Future<'a> {
                 async move {
                     COUNTER.fetch_add(1, Ordering::SeqCst);
                     Ok(Self(Instant::now()))

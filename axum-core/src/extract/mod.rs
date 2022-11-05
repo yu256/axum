@@ -38,15 +38,16 @@ mod private {
 ///
 /// [`axum::extract`]: https://docs.rs/axum/0.6.0-rc.2/axum/extract/index.html
 pub trait FromRequestParts<S>: Sized {
+    /// Future that resolves to either Self or Self::Rejection.
+    type Future<'a>: Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a;
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a>;
 }
 
 /// Types that can be created from requests.
@@ -101,29 +102,30 @@ pub trait FromRequestParts<S>: Sized {
 /// [`http::Request<B>`]: http::Request
 /// [`axum::extract`]: https://docs.rs/axum/0.6.0-rc.2/axum/extract/index.html
 pub trait FromRequest<S, B, M = private::ViaRequest>: Sized {
+    /// Future that resolves to either Self or Self::Rejection.
+    type Future<'a>: Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     /// If the extractor fails it'll use this "rejection" type. A rejection is
     /// a kind of error that can be converted into a response.
     type Rejection: IntoResponse;
 
     /// Perform the extraction.
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_;
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_>;
 }
 
 impl<S, B, T> FromRequest<S, B, private::ViaParts> for T
 where
-    B: Send + 'static,
-    S: Send + Sync,
     T: FromRequestParts<S>,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        B: 'a,
+        S: 'a;
     type Rejection = <Self as FromRequestParts<S>>::Rejection;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move {
             let (mut parts, _) = req.into_parts();
             Self::from_request_parts(&mut parts, state).await
@@ -136,12 +138,12 @@ where
     T: FromRequestParts<S>,
     S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Option<T>, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
         async move { Ok(T::from_request_parts(parts, state).await.ok()) }
     }
 }
@@ -152,12 +154,12 @@ where
     B: Send + 'static,
     S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Option<T>, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move { Ok(T::from_request(req, state).await.ok()) }
     }
 }
@@ -167,12 +169,12 @@ where
     T: FromRequestParts<S>,
     S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request_parts<'a>(
-        parts: &'a mut Parts,
-        state: &'a S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + 'a {
+    fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
         async move { Ok(T::from_request_parts(parts, state).await) }
     }
 }
@@ -183,12 +185,12 @@ where
     B: Send + 'static,
     S: Send + Sync,
 {
+    type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+    where
+        S: 'a;
     type Rejection = Infallible;
 
-    fn from_request(
-        req: Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send + '_ {
+    fn from_request(req: Request<B>, state: &S) -> Self::Future<'_> {
         async move { Ok(T::from_request(req, state).await) }
     }
 }
