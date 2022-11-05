@@ -143,6 +143,7 @@ macro_rules! top_level_handler_fn {
         pub fn $name<H, T, S, B>(handler: H) -> MethodRouter<S, B, Infallible>
         where
             H: Handler<T, S, B>,
+            H::Future: Send,
             B: Send + 'static,
             T: 'static,
             S: Clone + Send + Sync + 'static,
@@ -280,6 +281,7 @@ macro_rules! chained_handler_fn {
         pub fn $name<H, T>(self, handler: H) -> Self
         where
             H: Handler<T, S, B>,
+            H::Future: Send,
             T: 'static,
             S: Send + Sync + 'static,
         {
@@ -430,6 +432,7 @@ top_level_handler_fn!(trace, TRACE);
 pub fn on<H, T, S, B>(filter: MethodFilter, handler: H) -> MethodRouter<S, B, Infallible>
 where
     H: Handler<T, S, B>,
+    H::Future: Send,
     B: Send + 'static,
     T: 'static,
     S: Clone + Send + Sync + 'static,
@@ -477,6 +480,7 @@ where
 pub fn any<H, T, S, B>(handler: H) -> MethodRouter<S, B, Infallible>
 where
     H: Handler<T, S, B>,
+    H::Future: Send,
     B: Send + 'static,
     T: 'static,
     S: Clone + Send + Sync + 'static,
@@ -601,6 +605,7 @@ where
     pub fn on<H, T>(self, filter: MethodFilter, handler: H) -> Self
     where
         H: Handler<T, S, B>,
+        H::Future: Send,
         T: 'static,
         S: Send + Sync + 'static,
     {
@@ -623,6 +628,7 @@ where
     pub fn fallback<H, T>(mut self, handler: H) -> Self
     where
         H: Handler<T, S, B>,
+        H::Future: Send,
         T: 'static,
         S: Send + Sync + 'static,
     {

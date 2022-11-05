@@ -17,6 +17,9 @@ mod tests {
         InnerState: FromRef<OuterState>,
     {
         type Rejection = Infallible;
+        type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+        where
+            OuterState: 'a;
 
         fn from_request_parts<'a>(
             _parts: &'a mut Parts,
@@ -37,6 +40,9 @@ mod tests {
         S: Send + Sync,
         String: FromRef<S>,
     {
+        type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+        where
+            S: 'a;
         type Rejection = Infallible;
 
         fn from_request_parts<'a>(_parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {

@@ -138,6 +138,7 @@ pub struct BodyStream<B>(SyncWrapper<BodyStreamInner<B>>)
 where
     B: HttpBody;
 
+#[allow(type_alias_bounds)]
 type BodyStreamInner<B: HttpBody> = http_body::combinators::MapErr<
     http_body::combinators::MapData<B, fn(B::Data) -> Bytes>,
     fn(B::Error) -> Error,

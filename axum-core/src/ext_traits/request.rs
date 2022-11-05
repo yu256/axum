@@ -165,7 +165,7 @@ mod tests {
     async fn extract_without_state() {
         let req = Request::new(());
 
-        let method: Method = req.extract().await.unwrap();
+        let method = req.extract::<Method, _>().await.unwrap();
 
         assert_eq!(method, Method::GET);
     }
@@ -174,7 +174,7 @@ mod tests {
     async fn extract_body_without_state() {
         let req = Request::new(Body::from("foobar"));
 
-        let body: String = req.extract().await.unwrap();
+        let body = req.extract::<String, _>().await.unwrap();
 
         assert_eq!(body, "foobar");
     }
@@ -185,7 +185,10 @@ mod tests {
 
         let state = "state".to_owned();
 
-        let State(extracted_state): State<String> = req.extract_with_state(&state).await.unwrap();
+        let State(extracted_state) = req
+            .extract_with_state::<State<String>, _, _>(&state)
+            .await
+            .unwrap();
 
         assert_eq!(extracted_state, state);
     }
@@ -224,16 +227,19 @@ mod tests {
     impl<S, B> FromRequest<S, B> for WorksForCustomExtractor
     where
         S: Send + Sync,
-        B: Send + 'static,
         String: FromRef<S> + FromRequest<(), B>,
     {
+        type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+        where
+            B: 'a,
+            S: 'a;
         type Rejection = <String as FromRequest<(), B>>::Rejection;
 
         fn from_request(mut req: Request<B>, state: &S) -> Self::Future<'_> {
             async move {
                 let RequiresState(from_state) = req.extract_parts_with_state(state).await.unwrap();
                 let method = req.extract_parts().await.unwrap();
-                let body = req.extract().await?;
+                let body = req.extract::<String, _>().await?;
 
                 Ok(Self {
                     method,

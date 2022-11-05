@@ -54,7 +54,7 @@ mod tests {
     async fn extract_without_state() {
         let (mut parts, _) = Request::new(()).into_parts();
 
-        let method: Method = parts.extract().await.unwrap();
+        let method = parts.extract::<Method>().await.unwrap();
 
         assert_eq!(method, Method::GET);
     }
@@ -85,15 +85,16 @@ mod tests {
         S: Send + Sync,
         String: FromRef<S>,
     {
+        type Future<'a> = impl Future<Output = Result<Self, Self::Rejection>> + 'a
+        where
+            S: 'a;
         type Rejection = Infallible;
 
-        fn from_request_parts<'a>(
-            parts: &'a mut Parts,
-            state: &'a S,
-        ) -> impl Future<Output = Result<Self, Self::Rejection>> + 'a {
+        fn from_request_parts<'a>(parts: &'a mut Parts, state: &'a S) -> Self::Future<'a> {
             async move {
-                let RequiresState(from_state) = parts.extract_with_state(state).await?;
-                let method = parts.extract().await?;
+                let RequiresState(from_state) =
+                    parts.extract_with_state::<RequiresState, _>(state).await?;
+                let method = parts.extract::<Method>().await?;
 
                 Ok(Self { method, from_state })
             }

@@ -1,6 +1,5 @@
 use crate::response::{IntoResponse, Response};
 use axum_core::extract::FromRequestParts;
-use futures_util::future::BoxFuture;
 use http::Request;
 use std::{
     any::type_name,
@@ -8,7 +7,6 @@ use std::{
     fmt,
     future::Future,
     marker::PhantomData,
-    pin::Pin,
     task::{Context, Poll},
 };
 use tower_layer::Layer;
@@ -246,12 +244,11 @@ macro_rules! impl_service {
         {
             type Response = Response;
             type Error = Infallible;
-            type Future = ResponseFuture;
+            type Future = impl Future<Output = Result<Response, Infallible>>;
 
             fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
                 self.inner.poll_ready(cx)
             }
-
 
             fn call(&mut self, req: Request<B>) -> Self::Future {
                 let not_ready_inner = self.inner.clone();
@@ -260,13 +257,13 @@ macro_rules! impl_service {
                 let mut f = self.f.clone();
                 let _state = self.state.clone();
 
-                let future = Box::pin(async move {
+                async move {
                     let (mut parts, body) = req.into_parts();
 
                     $(
                         let $ty = match $ty::from_request_parts(&mut parts, &_state).await {
                             Ok(value) => value,
-                            Err(rejection) => return rejection.into_response(),
+                            Err(rejection) => return Ok(rejection.into_response()),
                         };
                     )*
 
@@ -274,14 +271,10 @@ macro_rules! impl_service {
 
                     match ready_inner.call(req).await {
                         Ok(res) => {
-                            f($($ty,)* res).await.into_response()
+                            Ok(f($($ty,)* res).await.into_response())
                         }
                         Err(err) => match err {}
                     }
-                });
-
-                ResponseFuture {
-                    inner: future
                 }
             }
         }
@@ -317,25 +310,6 @@ where
             .field("inner", &self.inner)
             .field("state", &self.state)
             .finish()
-    }
-}
-
-/// Response future for [`MapResponse`].
-pub struct ResponseFuture {
-    inner: BoxFuture<'static, Response>,
-}
-
-impl Future for ResponseFuture {
-    type Output = Result<Response, Infallible>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.inner.as_mut().poll(cx).map(Ok)
-    }
-}
-
-impl fmt::Debug for ResponseFuture {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ResponseFuture").finish()
     }
 }
 

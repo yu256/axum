@@ -2,7 +2,6 @@ use crate::{
     extract::FromRequestParts,
     response::{IntoResponse, Response},
 };
-use futures_util::{future::BoxFuture, ready};
 use http::Request;
 use pin_project_lite::pin_project;
 use std::{
@@ -10,7 +9,7 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_layer::Layer;
 use tower_service::Service;
@@ -206,7 +205,8 @@ where
 {
     type Response = Response;
     type Error = T::Error;
-    type Future = ResponseFuture<B, T, E, S>;
+    type Future =
+        ResponseFuture<B, T, E, S, impl Future<Output = (Request<B>, Result<E, E::Rejection>)>>;
 
     #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -215,16 +215,17 @@ where
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
         let state = self.state.clone();
-        let extract_future = Box::pin(async move {
+        let future = async move {
             let (mut parts, body) = req.into_parts();
             let extracted = E::from_request_parts(&mut parts, &state).await;
             let req = Request::from_parts(parts, body);
             (req, extracted)
-        });
+        };
 
         ResponseFuture {
             state: State::Extracting {
-                future: extract_future,
+                future,
+                _phantom: PhantomData,
             },
             svc: Some(self.inner.clone()),
         }
@@ -234,36 +235,40 @@ where
 pin_project! {
     /// Response future for [`FromExtractor`].
     #[allow(missing_debug_implementations)]
-    pub struct ResponseFuture<B, T, E, S>
+    pub struct ResponseFuture<B, T, E, S, F>
     where
         E: FromRequestParts<S>,
         T: Service<Request<B>>,
+        F: Future<Output = (Request<B>, Result<E, E::Rejection>)>,
     {
         #[pin]
-        state: State<B, T, E, S>,
+        state: State<B, T, E, S, F>,
         svc: Option<T>,
     }
 }
 
 pin_project! {
     #[project = StateProj]
-    enum State<B, T, E, S>
+    enum State<B, T, E, S, F>
     where
         E: FromRequestParts<S>,
         T: Service<Request<B>>,
+        F: Future<Output = (Request<B>, Result<E, E::Rejection>)>,
     {
         Extracting {
-            future: BoxFuture<'static, (Request<B>, Result<E, E::Rejection>)>,
+            #[pin] future: F,
+            _phantom: PhantomData<fn() -> S>
         },
         Call { #[pin] future: T::Future },
     }
 }
 
-impl<B, T, E, S> Future for ResponseFuture<B, T, E, S>
+impl<B, T, E, S, F> Future for ResponseFuture<B, T, E, S, F>
 where
     E: FromRequestParts<S>,
     T: Service<Request<B>>,
     T::Response: IntoResponse,
+    F: Future<Output = (Request<B>, Result<E, E::Rejection>)>,
 {
     type Output = Result<Response, T::Error>;
 
@@ -272,7 +277,7 @@ where
             let mut this = self.as_mut().project();
 
             let new_state = match this.state.as_mut().project() {
-                StateProj::Extracting { future } => {
+                StateProj::Extracting { mut future, .. } => {
                     let (req, extracted) = ready!(future.as_mut().poll(cx));
 
                     match extracted {

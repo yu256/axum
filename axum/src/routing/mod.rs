@@ -488,6 +488,7 @@ where
     pub fn fallback<H, T>(mut self, handler: H) -> Self
     where
         H: Handler<T, S, B>,
+        H::Future: Send,
         T: 'static,
     {
         self.fallback = Fallback::BoxedHandler(BoxedHandler::new(handler));

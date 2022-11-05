@@ -18,12 +18,3 @@ pub use self::map_response::{
     map_response, map_response_with_state, MapResponse, MapResponseLayer,
 };
 pub use crate::extension::AddExtension;
-
-pub mod future {
-    //! Future types.
-
-    pub use super::from_extractor::ResponseFuture as FromExtractorResponseFuture;
-    pub use super::from_fn::ResponseFuture as FromFnResponseFuture;
-    pub use super::map_request::ResponseFuture as MapRequestResponseFuture;
-    pub use super::map_response::ResponseFuture as MapResponseResponseFuture;
-}
