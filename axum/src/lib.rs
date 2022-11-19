@@ -1,4 +1,3 @@
-#![cfg_attr(nightly_error_messages, feature(rustc_attrs))]
 //! axum is a web application framework that focuses on ergonomics and modularity.
 //!
 //! # Table of contents
@@ -392,6 +391,7 @@
 //! [`axum-core`]: http://crates.io/crates/axum-core
 //! [`State`]: crate::extract::State
 
+#![cfg_attr(nightly_error_messages, feature(rustc_attrs))]
 #![warn(
     clippy::all,
     clippy::dbg_macro,
