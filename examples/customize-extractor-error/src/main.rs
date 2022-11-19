@@ -4,6 +4,9 @@
 //! cd examples && cargo run -p example-customize-extractor-error
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 mod custom_extractor;
 mod derive_from_request;
 mod with_rejection;

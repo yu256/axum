@@ -1,13 +1,8 @@
-use axum::{
-    async_trait,
-    extract::FromRequest,
-    http::Request,
-};
+use axum::{extract::FromRequest, http::Request};
 use axum_macros::debug_handler;
 
 struct A;
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for A
 where
     B: Send + 'static,
@@ -20,7 +15,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for Box<A>
 where
     B: Send + 'static,

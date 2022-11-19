@@ -423,7 +423,6 @@ use axum::{
 
 struct ExtractUserAgent(HeaderValue);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractUserAgent
 where
     S: Send + Sync,
@@ -470,7 +469,6 @@ use axum::{
 
 struct ValidatedBody(Bytes);
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for ValidatedBody
 where
     Bytes: FromRequest<S, B>,
@@ -520,7 +518,6 @@ use std::convert::Infallible;
 struct MyExtractor;
 
 // `MyExtractor` implements both `FromRequest`
-#[async_trait]
 impl<S, B> FromRequest<S, B> for MyExtractor
 where
     S: Send + Sync,
@@ -535,7 +532,6 @@ where
 }
 
 // and `FromRequestParts`
-#[async_trait]
 impl<S> FromRequestParts<S> for MyExtractor
 where
     S: Send + Sync,
@@ -587,7 +583,6 @@ struct AuthenticatedUser {
     // ...
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
     S: Send + Sync,
@@ -777,7 +772,6 @@ struct Timing<E> {
 }
 
 // we must implement both `FromRequestParts`
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Timing<T>
 where
     S: Send + Sync,
@@ -797,7 +791,6 @@ where
 }
 
 // and `FromRequest`
-#[async_trait]
 impl<S, B, T> FromRequest<S, B> for Timing<T>
 where
     B: Send + 'static,

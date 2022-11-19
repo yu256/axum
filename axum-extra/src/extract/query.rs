@@ -1,5 +1,4 @@
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     response::{IntoResponse, Response},
     Error,
@@ -57,10 +56,9 @@ use std::{fmt, ops::Deref};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Query<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Query<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     S: Send + Sync,
 {
     type Rejection = QueryRejection;

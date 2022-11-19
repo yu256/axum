@@ -3,7 +3,6 @@ use crate::{
     extract::{rejection::*, FromRequest},
     BoxError,
 };
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, Response};
 use bytes::{BufMut, BytesMut};
 use http::{
@@ -99,10 +98,9 @@ use std::ops::{Deref, DerefMut};
 #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 pub struct Json<T>(pub T);
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for Json<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,

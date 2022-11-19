@@ -6,8 +6,10 @@
 //! JWT_SECRET=secret cargo run -p example-jwt
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use axum::{
-    async_trait,
     extract::{FromRequestParts, TypedHeader},
     headers::{authorization::Bearer, Authorization},
     http::{request::Parts, StatusCode},
@@ -121,7 +123,6 @@ impl AuthBody {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Claims
 where
     S: Send + Sync,

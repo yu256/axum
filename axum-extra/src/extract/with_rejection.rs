@@ -1,4 +1,3 @@
-use axum::async_trait;
 use axum::extract::{FromRequest, FromRequestParts};
 use axum::response::IntoResponse;
 use http::request::Parts;
@@ -108,13 +107,12 @@ impl<E, R> DerefMut for WithRejection<E, R> {
     }
 }
 
-#[async_trait]
 impl<B, E, R, S> FromRequest<S, B> for WithRejection<E, R>
 where
     B: Send + 'static,
     S: Send + Sync,
-    E: FromRequest<S, B>,
-    R: From<E::Rejection> + IntoResponse,
+    E: FromRequest<S, B> + 'static,
+    R: From<E::Rejection> + IntoResponse + 'static,
 {
     type Rejection = R;
 
@@ -124,12 +122,11 @@ where
     }
 }
 
-#[async_trait]
 impl<E, R, S> FromRequestParts<S> for WithRejection<E, R>
 where
     S: Send + Sync,
     E: FromRequestParts<S>,
-    R: From<E::Rejection> + IntoResponse,
+    R: From<E::Rejection> + IntoResponse + 'static,
 {
     type Rejection = R;
 
@@ -153,7 +150,6 @@ mod tests {
         struct TestExtractor;
         struct TestRejection;
 
-        #[async_trait]
         impl<S> FromRequestParts<S> for TestExtractor
         where
             S: Send + Sync,

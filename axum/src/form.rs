@@ -1,7 +1,6 @@
 use crate::body::HttpBody;
 use crate::extract::{rejection::*, FromRequest, RawForm};
 use crate::BoxError;
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, Response};
 use axum_core::RequestExt;
 use http::header::CONTENT_TYPE;
@@ -61,10 +60,9 @@ use std::ops::Deref;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Form<T>(pub T);
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for Form<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,
@@ -126,7 +124,10 @@ mod tests {
         page: Option<u64>,
     }
 
-    async fn check_query<T: DeserializeOwned + PartialEq + Debug>(uri: impl AsRef<str>, value: T) {
+    async fn check_query<T: DeserializeOwned + PartialEq + Debug + 'static>(
+        uri: impl AsRef<str>,
+        value: T,
+    ) {
         let req = Request::builder()
             .uri(uri.as_ref())
             .body(Empty::<Bytes>::new())
@@ -134,7 +135,7 @@ mod tests {
         assert_eq!(Form::<T>::from_request(req, &()).await.unwrap().0, value);
     }
 
-    async fn check_body<T: Serialize + DeserializeOwned + PartialEq + Debug>(value: T) {
+    async fn check_body<T: Serialize + DeserializeOwned + PartialEq + Debug + 'static>(value: T) {
         let req = Request::builder()
             .uri("http://example.com/test")
             .method(Method::POST)

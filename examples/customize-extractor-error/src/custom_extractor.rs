@@ -5,7 +5,6 @@
 //! - Boilerplate: Requires creating a new extractor for every custom rejection
 //! - Complexity: Manually implementing `FromRequest` results on more complex code
 use axum::{
-    async_trait,
     extract::{rejection::JsonRejection, FromRequest, MatchedPath},
     http::Request,
     http::StatusCode,
@@ -21,10 +20,9 @@ pub async fn handler(Json(value): Json<Value>) -> impl IntoResponse {
 // We define our own `Json` extractor that customizes the error from `axum::Json`
 pub struct Json<T>(pub T);
 
-#[async_trait]
 impl<S, B, T> FromRequest<S, B> for Json<T>
 where
-    axum::Json<T>: FromRequest<S, B, Rejection = JsonRejection>,
+    axum::Json<T>: FromRequest<S, B, Rejection = JsonRejection> + 'static,
     S: Send + Sync,
     B: Send + 'static,
 {

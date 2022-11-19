@@ -191,7 +191,6 @@ use from_request::Trait::{FromRequest, FromRequestParts};
 ///     http::StatusCode,
 ///     headers::ContentType,
 ///     body::Bytes,
-///     async_trait,
 /// };
 ///
 /// #[derive(FromRequest)]

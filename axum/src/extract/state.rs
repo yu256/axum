@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use axum_core::extract::{FromRef, FromRequestParts};
 use http::request::Parts;
 use std::{
@@ -8,7 +7,7 @@ use std::{
 
 /// Extractor for state.
 ///
-/// See ["Accessing state in middleware"][state-from-middleware] for how to  
+/// See ["Accessing state in middleware"][state-from-middleware] for how to
 /// access state in middleware.
 ///
 /// [state-from-middleware]: crate::middleware#accessing-state-in-middleware
@@ -151,13 +150,11 @@ use std::{
 /// ```rust
 /// use axum_core::extract::{FromRequestParts, FromRef};
 /// use http::request::Parts;
-/// use async_trait::async_trait;
 /// use std::convert::Infallible;
 ///
 /// // the extractor your library provides
 /// struct MyLibraryExtractor;
 ///
-/// #[async_trait]
 /// impl<S> FromRequestParts<S> for MyLibraryExtractor
 /// where
 ///     // keep `S` generic but require that it can produce a `MyLibraryState`
@@ -231,10 +228,9 @@ use std::{
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State<S>(pub S);
 
-#[async_trait]
 impl<OuterState, InnerState> FromRequestParts<OuterState> for State<InnerState>
 where
-    InnerState: FromRef<OuterState>,
+    InnerState: FromRef<OuterState> + 'static,
     OuterState: Send + Sync,
 {
     type Rejection = Infallible;

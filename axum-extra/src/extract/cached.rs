@@ -1,7 +1,4 @@
-use axum::{
-    async_trait,
-    extract::{Extension, FromRequestParts},
-};
+use axum::extract::{Extension, FromRequestParts};
 use http::request::Parts;
 use std::ops::{Deref, DerefMut};
 
@@ -30,7 +27,6 @@ use std::ops::{Deref, DerefMut};
 /// #[derive(Clone)]
 /// struct Session { /* ... */ }
 ///
-/// #[async_trait]
 /// impl<S> FromRequestParts<S> for Session
 /// where
 ///     S: Send + Sync,
@@ -45,7 +41,6 @@ use std::ops::{Deref, DerefMut};
 ///
 /// struct CurrentUser { /* ... */ }
 ///
-/// #[async_trait]
 /// impl<S> FromRequestParts<S> for CurrentUser
 /// where
 ///     S: Send + Sync,
@@ -88,7 +83,6 @@ pub struct Cached<T>(pub T);
 #[derive(Clone)]
 struct CachedEntry<T>(T);
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Cached<T>
 where
     S: Send + Sync,
@@ -140,7 +134,6 @@ mod tests {
         #[derive(Clone, Debug, PartialEq, Eq)]
         struct Extractor(Instant);
 
-        #[async_trait]
         impl<S> FromRequestParts<S> for Extractor
         where
             S: Send + Sync,

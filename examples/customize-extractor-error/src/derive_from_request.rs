@@ -11,6 +11,7 @@
 //!
 //! [`thiserror`]: https://crates.io/crates/thiserror
 //! [FromRequest#known-limitations]: https://docs.rs/axum-macros/*/axum_macros/derive.FromRequest.html#known-limitations
+
 use axum::{extract::rejection::JsonRejection, http::StatusCode, response::IntoResponse};
 use axum_macros::FromRequest;
 use serde_json::{json, Value};

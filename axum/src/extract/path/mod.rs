@@ -7,7 +7,6 @@ use crate::{
     extract::{rejection::*, FromRequestParts},
     routing::url_params::UrlParams,
 };
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, Response};
 use http::{request::Parts, StatusCode};
 use serde::de::DeserializeOwned;
@@ -166,10 +165,9 @@ impl<T> DerefMut for Path<T> {
     }
 }
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Path<T>
 where
-    T: DeserializeOwned + Send,
+    T: DeserializeOwned + Send + 'static,
     S: Send + Sync,
 {
     type Rejection = PathRejection;

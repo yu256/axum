@@ -384,7 +384,6 @@ fn impl_struct_by_extracting_each_field(
 
     Ok(match tr {
         Trait::FromRequest => quote! {
-            #[::axum::async_trait]
             #[automatically_derived]
             impl<#impl_generics> ::axum::extract::FromRequest<#trait_generics> for #ident
             where
@@ -404,7 +403,6 @@ fn impl_struct_by_extracting_each_field(
             }
         },
         Trait::FromRequestParts => quote! {
-            #[::axum::async_trait]
             #[automatically_derived]
             impl<#impl_generics> ::axum::extract::FromRequestParts<#trait_generics> for #ident
             where
@@ -477,7 +475,8 @@ fn extract_fields(
             let FromRequestFieldAttrs { via } = parse_attrs("from_request", &field.attrs)?;
 
             let member = member(field, index);
-            let ty_span = field.ty.span();
+            let ty = &field.ty;
+            let ty_span = ty.span();
             let into_inner = into_inner(via, ty_span);
 
             if peel_option(&field.ty).is_some() {
@@ -487,7 +486,7 @@ fn extract_fields(
                             #member: {
                                 let (mut parts, body) = req.into_parts();
                                 let value =
-                                    ::axum::extract::FromRequestParts::from_request_parts(
+                                    <$ty as ::axum::extract::FromRequestParts<_>>::from_request_parts(
                                         &mut parts,
                                         state,
                                     )
@@ -502,7 +501,7 @@ fn extract_fields(
                     Trait::FromRequestParts => {
                         quote_spanned! {ty_span=>
                             #member: {
-                                ::axum::extract::FromRequestParts::from_request_parts(
+                                <$ty as ::axum::extract::FromRequestParts<_>>::from_request_parts(
                                     parts,
                                     state,
                                 )
@@ -521,7 +520,7 @@ fn extract_fields(
                             #member: {
                                 let (mut parts, body) = req.into_parts();
                                 let value =
-                                    ::axum::extract::FromRequestParts::from_request_parts(
+                                    <$ty as ::axum::extract::FromRequestParts<_>>::from_request_parts(
                                         &mut parts,
                                         state,
                                     )
@@ -535,7 +534,7 @@ fn extract_fields(
                     Trait::FromRequestParts => {
                         quote_spanned! {ty_span=>
                             #member: {
-                                ::axum::extract::FromRequestParts::from_request_parts(
+                                <$ty as ::axum::extract::FromRequestParts<_>>::from_request_parts(
                                     parts,
                                     state,
                                 )
@@ -559,7 +558,7 @@ fn extract_fields(
                             #member: {
                                 let (mut parts, body) = req.into_parts();
                                 let value =
-                                    ::axum::extract::FromRequestParts::from_request_parts(
+                                    <$ty as ::axum::extract::FromRequestParts<_>>::from_request_parts(
                                         &mut parts,
                                         state,
                                     )
@@ -574,7 +573,7 @@ fn extract_fields(
                     Trait::FromRequestParts => {
                         quote_spanned! {ty_span=>
                             #member: {
-                                ::axum::extract::FromRequestParts::from_request_parts(
+                                <$ty as ::axum::extract::FromRequestParts<_>>::from_request_parts(
                                     parts,
                                     state,
                                 )
@@ -595,13 +594,14 @@ fn extract_fields(
         let FromRequestFieldAttrs { via } = parse_attrs("from_request", &field.attrs)?;
 
         let member = member(field, fields.len() - 1);
-        let ty_span = field.ty.span();
+        let ty = &field.ty;
+        let ty_span = ty.span();
         let into_inner = into_inner(via, ty_span);
 
         let item = if peel_option(&field.ty).is_some() {
             quote_spanned! {ty_span=>
                 #member: {
-                    ::axum::extract::FromRequest::from_request(req, state)
+                    <$ty as ::axum::extract::FromRequest<_, _>>::from_request(req, state)
                         .await
                         .ok()
                         .map(#into_inner)
@@ -610,7 +610,7 @@ fn extract_fields(
         } else if peel_result_ok(&field.ty).is_some() {
             quote_spanned! {ty_span=>
                 #member: {
-                    ::axum::extract::FromRequest::from_request(req, state)
+                    <$ty as ::axum::extract::FromRequest<_, _>>::from_request(req, state)
                         .await
                         .map(#into_inner)
                 },
@@ -624,7 +624,7 @@ fn extract_fields(
 
             quote_spanned! {ty_span=>
                 #member: {
-                    ::axum::extract::FromRequest::from_request(req, state)
+                    <$ty as ::axum::extract::FromRequest<_, _>>::from_request(req, state)
                         .await
                         .map(#into_inner)
                         .map_err(#map_err)?
@@ -822,11 +822,10 @@ fn impl_struct_by_extracting_all_at_once(
     let tokens = match tr {
         Trait::FromRequest => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequest<#trait_generics> for #ident #ident_generics
                 where
-                    #via_path<#via_type_generics>: ::axum::extract::FromRequest<#trait_generics>,
+                    #via_path<#via_type_generics>: ::axum::extract::FromRequest<#trait_generics> + 'static,
                     #rejection_bound
                     B: ::std::marker::Send + 'static,
                     #state_bounds
@@ -837,7 +836,7 @@ fn impl_struct_by_extracting_all_at_once(
                         req: ::axum::http::Request<B>,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
-                        ::axum::extract::FromRequest::from_request(req, state)
+                        <#via_path<#via_type_generics> as ::axum::extract::FromRequest<_, _>>::from_request(req, state)
                             .await
                             .map(|#via_path(value)| #value_to_self)
                             .map_err(#map_err)
@@ -847,11 +846,10 @@ fn impl_struct_by_extracting_all_at_once(
         }
         Trait::FromRequestParts => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequestParts<#trait_generics> for #ident #ident_generics
                 where
-                    #via_path<#via_type_generics>: ::axum::extract::FromRequestParts<#trait_generics>,
+                    #via_path<#via_type_generics>: ::axum::extract::FromRequestParts<#trait_generics> + 'static,
                     #rejection_bound
                     #state_bounds
                 {
@@ -861,7 +859,7 @@ fn impl_struct_by_extracting_all_at_once(
                         parts: &mut ::axum::http::request::Parts,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
-                        ::axum::extract::FromRequestParts::from_request_parts(parts, state)
+                        <#via_path<#via_type_generics> as ::axum::extract::FromRequestParts<_>>::from_request_parts(parts, state)
                             .await
                             .map(|#via_path(value)| #value_to_self)
                             .map_err(#map_err)
@@ -938,7 +936,6 @@ fn impl_enum_by_extracting_all_at_once(
     let tokens = match tr {
         Trait::FromRequest => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequest<#trait_generics> for #ident
                 where
@@ -953,7 +950,7 @@ fn impl_enum_by_extracting_all_at_once(
                         req: ::axum::http::Request<B>,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
-                        ::axum::extract::FromRequest::from_request(req, state)
+                        <#path as ::axum::extract::FromRequest<_, _>>::from_request(req, state)
                             .await
                             .map(|#path(inner)| inner)
                             .map_err(#map_err)
@@ -963,7 +960,6 @@ fn impl_enum_by_extracting_all_at_once(
         }
         Trait::FromRequestParts => {
             quote_spanned! {path_span=>
-                #[::axum::async_trait]
                 #[automatically_derived]
                 impl<#impl_generics> ::axum::extract::FromRequestParts<#trait_generics> for #ident
                 where
@@ -975,7 +971,7 @@ fn impl_enum_by_extracting_all_at_once(
                         parts: &mut ::axum::http::request::Parts,
                         state: &#state,
                     ) -> ::std::result::Result<Self, Self::Rejection> {
-                        ::axum::extract::FromRequestParts::from_request_parts(parts, state)
+                        <#path as ::axum::extract::FromRequestParts<_>>::from_request_parts(parts, state)
                             .await
                             .map(|#path(inner)| inner)
                             .map_err(#map_err)

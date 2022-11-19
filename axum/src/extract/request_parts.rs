@@ -3,7 +3,6 @@ use crate::{
     body::{Body, Bytes, HttpBody},
     BoxError, Error,
 };
-use async_trait::async_trait;
 use futures_util::stream::Stream;
 use http::{request::Parts, Request, Uri};
 use std::{
@@ -85,7 +84,6 @@ use sync_wrapper::SyncWrapper;
 pub struct OriginalUri(pub Uri);
 
 #[cfg(feature = "original-uri")]
-#[async_trait]
 impl<S> FromRequestParts<S> for OriginalUri
 where
     S: Send + Sync,
@@ -145,7 +143,6 @@ impl Stream for BodyStream {
     }
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for BodyStream
 where
     B: HttpBody + Send + 'static,
@@ -208,10 +205,9 @@ fn body_stream_traits() {
 #[derive(Debug, Default, Clone)]
 pub struct RawBody<B = Body>(pub B);
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for RawBody<B>
 where
-    B: Send,
+    B: Send + 'static,
     S: Send + Sync,
 {
     type Rejection = Infallible;

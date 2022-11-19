@@ -3,7 +3,6 @@
 //! See [`CookieJar`], [`SignedCookieJar`], and [`PrivateCookieJar`] for more details.
 
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
@@ -88,7 +87,6 @@ pub struct CookieJar {
     jar: cookie::CookieJar,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for CookieJar
 where
     S: Send + Sync,

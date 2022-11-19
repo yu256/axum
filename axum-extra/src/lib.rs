@@ -23,6 +23,7 @@
 //!
 //! [`axum`]: https://crates.io/crates/axum
 
+#![feature(async_fn_in_trait)]
 #![warn(
     clippy::all,
     clippy::dbg_macro,
@@ -59,7 +60,11 @@
     missing_docs
 )]
 #![deny(unreachable_pub, private_in_public)]
-#![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
+#![allow(
+    elided_lifetimes_in_paths,
+    incomplete_features,
+    clippy::type_complexity
+)]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![cfg_attr(test, allow(clippy::float_cmp))]

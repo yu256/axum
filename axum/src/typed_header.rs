@@ -1,5 +1,4 @@
 use crate::extract::FromRequestParts;
-use async_trait::async_trait;
 use axum_core::response::{IntoResponse, IntoResponseParts, Response, ResponseParts};
 use headers::HeaderMapExt;
 use http::request::Parts;
@@ -52,10 +51,9 @@ use std::{convert::Infallible, ops::Deref};
 #[derive(Debug, Clone, Copy)]
 pub struct TypedHeader<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for TypedHeader<T>
 where
-    T: headers::Header,
+    T: headers::Header + 'static,
     S: Send + Sync,
 {
     type Rejection = TypedHeaderRejection;

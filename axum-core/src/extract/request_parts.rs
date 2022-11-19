@@ -1,14 +1,12 @@
 use super::{rejection::*, FromRequest, FromRequestParts};
 use crate::{BoxError, RequestExt};
-use async_trait::async_trait;
 use bytes::Bytes;
 use http::{request::Parts, HeaderMap, Method, Request, Uri, Version};
 use std::convert::Infallible;
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for Request<B>
 where
-    B: Send,
+    B: Send + 'static,
     S: Send + Sync,
 {
     type Rejection = Infallible;
@@ -18,7 +16,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Method
 where
     S: Send + Sync,
@@ -30,7 +27,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Uri
 where
     S: Send + Sync,
@@ -42,7 +38,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Version
 where
     S: Send + Sync,
@@ -59,7 +54,6 @@ where
 /// Prefer using [`TypedHeader`] to extract only the headers you need.
 ///
 /// [`TypedHeader`]: https://docs.rs/axum/latest/axum/extract/struct.TypedHeader.html
-#[async_trait]
 impl<S> FromRequestParts<S> for HeaderMap
 where
     S: Send + Sync,
@@ -71,7 +65,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for Bytes
 where
     B: http_body::Body + Send + 'static,
@@ -95,7 +88,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for String
 where
     B: http_body::Body + Send + 'static,
@@ -122,7 +114,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for Parts
 where
     B: Send + 'static,

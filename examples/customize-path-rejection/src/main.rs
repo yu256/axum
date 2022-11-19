@@ -4,8 +4,10 @@
 //! cd examples && cargo run -p example-customize-path-rejection
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use axum::{
-    async_trait,
     extract::{path::ErrorKind, rejection::PathRejection, FromRequestParts},
     http::{request::Parts, StatusCode},
     response::IntoResponse,
@@ -51,11 +53,10 @@ struct Params {
 // We define our own `Path` extractor that customizes the error from `axum::extract::Path`
 struct Path<T>(T);
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Path<T>
 where
     // these trait bounds are copied from `impl FromRequest for axum::extract::path::Path`
-    T: DeserializeOwned + Send,
+    T: DeserializeOwned + Send + 'static,
     S: Send + Sync,
 {
     type Rejection = (StatusCode, axum::Json<PathError>);

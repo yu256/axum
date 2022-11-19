@@ -5,7 +5,6 @@
 use super::{BodyStream, FromRequest};
 use crate::body::{Bytes, HttpBody};
 use crate::BoxError;
-use async_trait::async_trait;
 use axum_core::RequestExt;
 use futures_util::stream::Stream;
 use http::header::{HeaderMap, CONTENT_TYPE};
@@ -54,7 +53,6 @@ pub struct Multipart {
     inner: multer::Multipart<'static>,
 }
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for Multipart
 where
     B: HttpBody + Send + 'static,

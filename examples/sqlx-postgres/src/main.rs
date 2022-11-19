@@ -13,8 +13,10 @@
 //! curl -X POST 127.0.0.1:3000
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use axum::{
-    async_trait,
     extract::{FromRef, FromRequestParts, State},
     http::{request::Parts, StatusCode},
     routing::get,
@@ -76,7 +78,6 @@ async fn using_connection_pool_extractor(
 // which setup is appropriate depends on your application
 struct DatabaseConnection(sqlx::pool::PoolConnection<sqlx::Postgres>);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for DatabaseConnection
 where
     PgPool: FromRef<S>,

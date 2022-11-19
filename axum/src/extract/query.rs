@@ -1,5 +1,4 @@
 use super::{rejection::*, FromRequestParts};
-use async_trait::async_trait;
 use http::request::Parts;
 use serde::de::DeserializeOwned;
 use std::ops::Deref;
@@ -49,10 +48,9 @@ use std::ops::Deref;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Query<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Query<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     S: Send + Sync,
 {
     type Rejection = QueryRejection;
@@ -85,7 +83,7 @@ mod tests {
 
     async fn check<T>(uri: impl AsRef<str>, value: T)
     where
-        T: DeserializeOwned + PartialEq + Debug,
+        T: DeserializeOwned + PartialEq + Debug + 'static,
     {
         let req = Request::builder().uri(uri.as_ref()).body(()).unwrap();
         assert_eq!(Query::<T>::from_request(req, &()).await.unwrap().0, value);

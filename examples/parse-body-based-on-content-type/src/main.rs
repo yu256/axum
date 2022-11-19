@@ -6,8 +6,10 @@
 //! cd examples && cargo run -p example-parse-body-based-on-content-type
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use axum::{
-    async_trait,
     extract::FromRequest,
     http::{header::CONTENT_TYPE, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -56,7 +58,6 @@ enum JsonOrForm<T, K = T> {
     Form(K),
 }
 
-#[async_trait]
 impl<S, B, T, U> FromRequest<S, B> for JsonOrForm<T, U>
 where
     B: Send + 'static,

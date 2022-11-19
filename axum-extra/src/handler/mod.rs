@@ -66,8 +66,7 @@ pub trait HandlerCallWithExtractors<T, S, B>: Sized {
     /// // extractors for checking permissions
     /// struct AdminPermissions {}
     ///
-    /// #[async_trait]
-    /// impl<S> FromRequestParts<S> for AdminPermissions
+    ///     /// impl<S> FromRequestParts<S> for AdminPermissions
     /// where
     ///     S: Send + Sync,
     /// {
@@ -80,8 +79,7 @@ pub trait HandlerCallWithExtractors<T, S, B>: Sized {
     ///
     /// struct User {}
     ///
-    /// #[async_trait]
-    /// impl<S> FromRequestParts<S> for User
+    ///     /// impl<S> FromRequestParts<S> for User
     /// where
     ///     S: Send + Sync,
     /// {

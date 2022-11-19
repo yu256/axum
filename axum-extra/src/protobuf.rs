@@ -1,7 +1,6 @@
 //! Protocol Buffer extractor and response.
 
 use axum::{
-    async_trait,
     body::{Bytes, HttpBody},
     extract::{rejection::BytesRejection, FromRequest},
     response::{IntoResponse, Response},
@@ -96,10 +95,9 @@ use std::ops::{Deref, DerefMut};
 #[cfg_attr(docsrs, doc(cfg(feature = "protobuf")))]
 pub struct ProtoBuf<T>(pub T);
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for ProtoBuf<T>
 where
-    T: Message + Default,
+    T: Message + Default + 'static,
     B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,

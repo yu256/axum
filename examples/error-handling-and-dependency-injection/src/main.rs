@@ -7,8 +7,8 @@
 //! cd examples && cargo run -p example-error-handling-and-dependency-injection
 //! ```
 
+use async_trait::async_trait;
 use axum::{
-    async_trait,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},

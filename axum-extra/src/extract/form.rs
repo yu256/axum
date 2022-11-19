@@ -1,5 +1,4 @@
 use axum::{
-    async_trait,
     body::HttpBody,
     extract::{rejection::RawFormRejection, FromRequest, RawForm},
     response::{IntoResponse, Response},
@@ -51,10 +50,9 @@ impl<T> Deref for Form<T> {
     }
 }
 
-#[async_trait]
 impl<T, S, B> FromRequest<S, B> for Form<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<BoxError>,

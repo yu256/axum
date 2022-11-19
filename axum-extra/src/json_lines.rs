@@ -1,7 +1,6 @@
 //! Newline delimited JSON extractor and response.
 
 use axum::{
-    async_trait,
     body::{HttpBody, StreamBody},
     extract::FromRequest,
     response::{IntoResponse, Response},
@@ -99,13 +98,12 @@ impl<S> JsonLines<S, AsResponse> {
     }
 }
 
-#[async_trait]
 impl<S, B, T> FromRequest<S, B> for JsonLines<T, AsExtractor>
 where
     B: HttpBody + Send + 'static,
     B::Data: Into<Bytes>,
     B::Error: Into<BoxError>,
-    T: DeserializeOwned,
+    T: DeserializeOwned + 'static,
     S: Send + Sync,
 {
     type Rejection = Infallible;

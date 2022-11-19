@@ -12,7 +12,6 @@ repository = "https://github.com/tokio-rs/axum"
 version = "0.3.0-rc.3" # remember to also bump the version that axum depends on
 
 [dependencies]
-async-trait = "0.1"
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 http = "0.2.7"

@@ -4,8 +4,10 @@
 //! cd examples && cargo run -p example-consume-body-in-extractor-or-middleware
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use axum::{
-    async_trait,
     body::{self, BoxBody, Bytes, Full},
     extract::FromRequest,
     http::{Request, StatusCode},
@@ -80,7 +82,6 @@ async fn handler(BufferRequestBody(body): BufferRequestBody) {
 struct BufferRequestBody(Bytes);
 
 // we must implement `FromRequest` (and not `FromRequestParts`) to consume the body
-#[async_trait]
 impl<S> FromRequest<S, BoxBody> for BufferRequestBody
 where
     S: Send + Sync,

@@ -1,5 +1,4 @@
 use crate::{extract::rejection::*, response::IntoResponseParts};
-use async_trait::async_trait;
 use axum_core::{
     extract::FromRequestParts,
     response::{IntoResponse, Response, ResponseParts},
@@ -72,7 +71,6 @@ use tower_service::Service;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Extension<T>(pub T);
 
-#[async_trait]
 impl<T, S> FromRequestParts<S> for Extension<T>
 where
     T: Clone + Send + Sync + 'static,

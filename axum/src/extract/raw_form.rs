@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use axum_core::extract::FromRequest;
 use bytes::{Bytes, BytesMut};
 use http::{Method, Request};
@@ -34,7 +33,6 @@ use crate::{body::HttpBody, BoxError};
 #[derive(Debug)]
 pub struct RawForm(pub Bytes);
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for RawForm
 where
     B: HttpBody + Send + 'static,

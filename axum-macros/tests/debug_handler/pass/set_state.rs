@@ -1,7 +1,6 @@
-use axum_macros::debug_handler;
 use axum::extract::{FromRef, FromRequest};
-use axum::async_trait;
 use axum::http::Request;
+use axum_macros::debug_handler;
 
 #[debug_handler(state = AppState)]
 async fn handler(_: A) {}
@@ -11,7 +10,6 @@ struct AppState;
 
 struct A;
 
-#[async_trait]
 impl<S, B> FromRequest<S, B> for A
 where
     B: Send + 'static,

@@ -4,9 +4,11 @@
 //! cd examples && cargo run -p example-sessions
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use async_session::{MemoryStore, Session, SessionStore as _};
 use axum::{
-    async_trait,
     extract::{FromRef, FromRequestParts, TypedHeader},
     headers::Cookie,
     http::{
@@ -80,7 +82,6 @@ enum UserIdFromSession {
     CreatedFreshUserId(FreshUserId),
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for UserIdFromSession
 where
     MemoryStore: FromRef<S>,

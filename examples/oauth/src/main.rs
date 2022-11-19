@@ -8,9 +8,11 @@
 //! CLIENT_ID=REPLACE_ME CLIENT_SECRET=REPLACE_ME cargo run -p example-oauth
 //! ```
 
+#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+
 use async_session::{MemoryStore, Session, SessionStore};
 use axum::{
-    async_trait,
     extract::{
         rejection::TypedHeaderRejectionReason, FromRef, FromRequestParts, Query, State, TypedHeader,
     },
@@ -223,7 +225,6 @@ impl IntoResponse for AuthRedirect {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for User
 where
     MemoryStore: FromRef<S>,

@@ -6,7 +6,6 @@
 
 use super::{Extension, FromRequestParts};
 use crate::middleware::AddExtension;
-use async_trait::async_trait;
 use http::request::Parts;
 use hyper::server::conn::AddrStream;
 use std::{
@@ -128,7 +127,6 @@ opaque_future! {
 #[derive(Clone, Copy, Debug)]
 pub struct ConnectInfo<T>(pub T);
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for ConnectInfo<T>
 where
     S: Send + Sync,
