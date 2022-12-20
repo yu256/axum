@@ -48,13 +48,19 @@
 #![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
+#![feature(type_alias_impl_trait)]
 
 #[macro_use]
 pub(crate) mod macros;
 
 mod error;
 mod ext_traits;
+//mod layer;
+mod service;
+
 pub use self::error::Error;
+pub use self::ext_traits::{request::RequestExt, request_parts::RequestPartsExt};
+pub use self::service::Service;
 
 pub mod body;
 pub mod extract;
@@ -62,5 +68,3 @@ pub mod response;
 
 /// Alias for a type-erased error type.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-pub use self::ext_traits::{request::RequestExt, request_parts::RequestPartsExt};

@@ -919,10 +919,8 @@ where
     pub fn layer<L, NewReqBody, NewError>(self, layer: L) -> MethodRouter<S, NewReqBody, NewError>
     where
         L: Layer<Route<B, E>> + Clone + Send + 'static,
-        L::Service: Service<Request<NewReqBody>> + Clone + Send + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Response: IntoResponse + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Error: Into<NewError> + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Future: Send + 'static,
+        L::Service: crate::Service<S, NewReqBody> + Clone + Send + 'static,
+        <L::Service as crate::Service<S, NewReqBody>>::Future: Send + 'static,
         E: 'static,
         S: 'static,
         NewReqBody: HttpBody + 'static,

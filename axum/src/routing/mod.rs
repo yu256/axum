@@ -314,10 +314,8 @@ where
     pub fn layer<L, NewReqBody>(self, layer: L) -> Router<S, NewReqBody>
     where
         L: Layer<Route<B>> + Clone + Send + 'static,
-        L::Service: Service<Request<NewReqBody>> + Clone + Send + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Response: IntoResponse + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Error: Into<Infallible> + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Future: Send + 'static,
+        L::Service: crate::Service<S, NewReqBody> + Clone + Send + 'static,
+        <L::Service as crate::Service<S, NewReqBody>>::Future: Send + 'static,
         NewReqBody: HttpBody + 'static,
     {
         let routes = self
@@ -688,10 +686,8 @@ where
     fn layer<L, NewReqBody>(self, layer: L) -> Endpoint<S, NewReqBody>
     where
         L: Layer<Route<B>> + Clone + Send + 'static,
-        L::Service: Service<Request<NewReqBody>> + Clone + Send + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Response: IntoResponse + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Error: Into<Infallible> + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Future: Send + 'static,
+        L::Service: crate::Service<S, NewReqBody> + Clone + Send + 'static,
+        <L::Service as crate::Service<S, NewReqBody>>::Future: Send + 'static,
         NewReqBody: HttpBody + 'static,
     {
         match self {

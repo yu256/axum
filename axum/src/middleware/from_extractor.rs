@@ -1,6 +1,7 @@
 use crate::{
     extract::FromRequestParts,
     response::{IntoResponse, Response},
+    Service,
 };
 use futures_util::{future::BoxFuture, ready};
 use http::Request;
@@ -13,7 +14,6 @@ use std::{
     task::{Context, Poll},
 };
 use tower_layer::Layer;
-use tower_service::Service;
 
 /// Create a middleware from an extractor.
 ///
@@ -90,16 +90,8 @@ use tower_service::Service;
 /// ```
 ///
 /// [`Bytes`]: bytes::Bytes
-pub fn from_extractor<E>() -> FromExtractorLayer<E, ()> {
-    from_extractor_with_state(())
-}
-
-/// Create a middleware from an extractor with the given state.
-///
-/// See [`State`](crate::extract::State) for more details about accessing state.
-pub fn from_extractor_with_state<E, S>(state: S) -> FromExtractorLayer<E, S> {
+pub fn from_extractor<E>() -> FromExtractorLayer<E> {
     FromExtractorLayer {
-        state,
         _marker: PhantomData,
     }
 }
@@ -110,45 +102,32 @@ pub fn from_extractor_with_state<E, S>(state: S) -> FromExtractorLayer<E, S> {
 /// See [`from_extractor`] for more details.
 ///
 /// [`Layer`]: tower::Layer
-pub struct FromExtractorLayer<E, S> {
-    state: S,
+pub struct FromExtractorLayer<E> {
     _marker: PhantomData<fn() -> E>,
 }
 
-impl<E, S> Clone for FromExtractorLayer<E, S>
-where
-    S: Clone,
-{
+impl<E> Clone for FromExtractorLayer<E> {
     fn clone(&self) -> Self {
         Self {
-            state: self.state.clone(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<E, S> fmt::Debug for FromExtractorLayer<E, S>
-where
-    S: fmt::Debug,
-{
+impl<E> fmt::Debug for FromExtractorLayer<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FromExtractorLayer")
-            .field("state", &self.state)
             .field("extractor", &format_args!("{}", std::any::type_name::<E>()))
             .finish()
     }
 }
 
-impl<E, T, S> Layer<T> for FromExtractorLayer<E, S>
-where
-    S: Clone,
-{
-    type Service = FromExtractor<T, E, S>;
+impl<E, T> Layer<T> for FromExtractorLayer<E> {
+    type Service = FromExtractor<T, E>;
 
     fn layer(&self, inner: T) -> Self::Service {
         FromExtractor {
             inner,
-            state: self.state.clone(),
             _extractor: PhantomData,
         }
     }
@@ -157,66 +136,58 @@ where
 /// Middleware that runs an extractor and discards the value.
 ///
 /// See [`from_extractor`] for more details.
-pub struct FromExtractor<T, E, S> {
+pub struct FromExtractor<T, E> {
     inner: T,
-    state: S,
     _extractor: PhantomData<fn() -> E>,
 }
 
 #[test]
 fn traits() {
     use crate::test_helpers::*;
-    assert_send::<FromExtractor<(), NotSendSync, ()>>();
-    assert_sync::<FromExtractor<(), NotSendSync, ()>>();
+    assert_send::<FromExtractor<(), NotSendSync>>();
+    assert_sync::<FromExtractor<(), NotSendSync>>();
 }
 
-impl<T, E, S> Clone for FromExtractor<T, E, S>
+impl<T, E> Clone for FromExtractor<T, E>
 where
     T: Clone,
-    S: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
-            state: self.state.clone(),
             _extractor: PhantomData,
         }
     }
 }
 
-impl<T, E, S> fmt::Debug for FromExtractor<T, E, S>
+impl<T, E> fmt::Debug for FromExtractor<T, E>
 where
     T: fmt::Debug,
-    S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FromExtractor")
             .field("inner", &self.inner)
-            .field("state", &self.state)
             .field("extractor", &format_args!("{}", std::any::type_name::<E>()))
             .finish()
     }
 }
 
-impl<T, E, B, S> Service<Request<B>> for FromExtractor<T, E, S>
+impl<T, E, B, S> Service<S, B> for FromExtractor<T, E>
 where
     E: FromRequestParts<S> + 'static,
     B: Send + 'static,
-    T: Service<Request<B>> + Clone,
-    T::Response: IntoResponse,
+    T: Service<S, B> + Clone,
     S: Clone + Send + Sync + 'static,
 {
-    type Response = Response;
-    type Error = T::Error;
     type Future = ResponseFuture<B, T, E, S>;
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request<B>) -> Self::Future {
-        let state = self.state.clone();
+    fn call(&mut self, req: Request<B>, st: &S) -> Self::Future {
+        let state = st.to_owned();
         let extract_future = Box::pin(async move {
             let (mut parts, body) = req.into_parts();
             let extracted = E::from_request_parts(&mut parts, &state).await;
@@ -226,6 +197,7 @@ where
 
         ResponseFuture {
             state: State::Extracting {
+                st: st.clone(),
                 future: extract_future,
             },
             svc: Some(self.inner.clone()),
@@ -239,7 +211,7 @@ pin_project! {
     pub struct ResponseFuture<B, T, E, S>
     where
         E: FromRequestParts<S>,
-        T: Service<Request<B>>,
+        T: Service<S, B>,
     {
         #[pin]
         state: State<B, T, E, S>,
@@ -252,9 +224,10 @@ pin_project! {
     enum State<B, T, E, S>
     where
         E: FromRequestParts<S>,
-        T: Service<Request<B>>,
+        T: Service<S, B>,
     {
         Extracting {
+            st: S,
             future: BoxFuture<'static, (Request<B>, Result<E, E::Rejection>)>,
         },
         Call { #[pin] future: T::Future },
@@ -264,35 +237,32 @@ pin_project! {
 impl<B, T, E, S> Future for ResponseFuture<B, T, E, S>
 where
     E: FromRequestParts<S>,
-    T: Service<Request<B>>,
-    T::Response: IntoResponse,
+    T: Service<S, B>,
 {
-    type Output = Result<Response, T::Error>;
+    type Output = Response;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let mut this = self.as_mut().project();
 
             let new_state = match this.state.as_mut().project() {
-                StateProj::Extracting { future } => {
+                StateProj::Extracting { future, st } => {
                     let (req, extracted) = ready!(future.as_mut().poll(cx));
 
                     match extracted {
                         Ok(_) => {
                             let mut svc = this.svc.take().expect("future polled after completion");
-                            let future = svc.call(req);
+                            let future = svc.call(req, st);
                             State::Call { future }
                         }
                         Err(err) => {
                             let res = err.into_response();
-                            return Poll::Ready(Ok(res));
+                            return Poll::Ready(res);
                         }
                     }
                 }
                 StateProj::Call { future } => {
-                    return future
-                        .poll(cx)
-                        .map(|result| result.map(IntoResponse::into_response));
+                    return future.poll(cx);
                 }
             };
 
@@ -346,10 +316,7 @@ mod tests {
         async fn handler() {}
 
         let state = Secret("secret");
-        let app = Router::new().route(
-            "/",
-            get(handler.layer(from_extractor_with_state::<RequireAuth, _>(state))),
-        );
+        let app = Router::new().route("/", get(handler.layer(from_extractor())));
 
         let client = TestClient::new(app);
 

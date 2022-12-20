@@ -7,9 +7,7 @@ mod from_fn;
 mod map_request;
 mod map_response;
 
-pub use self::from_extractor::{
-    from_extractor, from_extractor_with_state, FromExtractor, FromExtractorLayer,
-};
+pub use self::from_extractor::{from_extractor, FromExtractor, FromExtractorLayer};
 pub use self::from_fn::{from_fn, from_fn_with_state, FromFn, FromFnLayer, Next};
 pub use self::map_request::{
     map_request, map_request_with_state, IntoMapRequestResult, MapRequest, MapRequestLayer,

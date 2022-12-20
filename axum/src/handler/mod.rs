@@ -145,7 +145,7 @@ pub trait Handler<T, S, B = Body>: Clone + Send + Sized + 'static {
     fn layer<L, NewReqBody>(self, layer: L) -> Layered<L, Self, T, S, B, NewReqBody>
     where
         L: Layer<HandlerService<Self, T, S, B>> + Clone,
-        L::Service: Service<Request<NewReqBody>>,
+        L::Service: crate::Service<S, NewReqBody>,
     {
         Layered {
             layer,

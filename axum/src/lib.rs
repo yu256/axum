@@ -487,7 +487,7 @@ pub use self::typed_header::TypedHeader;
 pub use self::form::Form;
 
 #[doc(inline)]
-pub use axum_core::{BoxError, Error, RequestExt, RequestPartsExt};
+pub use axum_core::{BoxError, Error, RequestExt, RequestPartsExt, Service};
 
 #[cfg(feature = "macros")]
 pub use axum_macros::debug_handler;
