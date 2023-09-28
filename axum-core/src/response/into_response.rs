@@ -148,6 +148,22 @@ impl IntoResponse for Infallible {
     }
 }
 
+impl<T: serde::Serialize> IntoResponse for anyhow::Result<T> {
+    fn into_response(self) -> Response {
+        match self {
+            Ok(data) => (
+                StatusCode::OK,
+                format!("{{\"Success\":{}}}", serde_json::to_string(&data).unwrap()),
+            ),
+            Err(error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("{{\"Error\":\"{}\"}}", error),
+            ),
+        }
+        .into_response()
+    }
+}
+
 impl<T, E> IntoResponse for Result<T, E>
 where
     T: IntoResponse,
