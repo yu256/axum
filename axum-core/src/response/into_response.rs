@@ -139,11 +139,11 @@ impl<T: serde::Serialize> IntoResponse for anyhow::Result<T> {
         match self {
             Ok(data) => (
                 StatusCode::OK,
-                format!("{{\"Success\":{}}}", serde_json::to_string(&data).unwrap()),
+                format!("{}", serde_json::to_string(&data).unwrap()),
             ),
             Err(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("{{\"Error\":\"{}\"}}", error),
+                format!("{{\"error\":\"{}\"}}", error),
             ),
         }
         .into_response()
