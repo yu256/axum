@@ -1239,7 +1239,7 @@ const _: () = {
         }
 
         fn call(&mut self, _req: IncomingStream<'_>) -> Self::Future {
-            std::future::ready(Ok(self.clone()))
+            std::future::ready(Ok(self.clone().with_state(())))
         }
     }
 };
@@ -1247,12 +1247,11 @@ const _: () = {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{body::Body, extract::State, handler::HandlerWithoutStateExt};
-    use axum_core::response::IntoResponse;
+    use crate::{extract::State, handler::HandlerWithoutStateExt};
     use http::{header::ALLOW, HeaderMap};
     use http_body_util::BodyExt;
     use std::time::Duration;
-    use tower::{Service, ServiceExt};
+    use tower::ServiceExt;
     use tower_http::{
         services::fs::ServeDir, timeout::TimeoutLayer, validate_request::ValidateRequestHeaderLayer,
     };

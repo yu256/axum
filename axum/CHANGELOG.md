@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- None.
+- **change:** Avoid cloning `Arc` during deserialization of `Path`
+
+# 0.7.5 (24. March, 2024)
+
+- **fixed:** Fixed layers being cloned when calling `axum::serve` directly with
+  a `Router` or `MethodRouter` ([#2586])
+- **fixed:** `h2` is no longer pulled as a dependency unless the `http2` feature
+  is enabled ([#2605])
+
+[#2586]: https://github.com/tokio-rs/axum/pull/2586
+[#2605]: https://github.com/tokio-rs/axum/pull/2605
 
 # 0.7.4 (13. January, 2024)
 
